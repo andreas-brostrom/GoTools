@@ -8,6 +8,7 @@
 
 #include "GoTools/lrsplines2D/LRSplineSurface.h"
 #include "GoTools/lrsplines2D/SSurfTraceIsocontours.h"
+#include "GoTools/geometry/SISLconversion.h"
 
 using namespace std;
 using namespace Go;
@@ -314,6 +315,7 @@ inline bool is_point_on_boundary(const SplineSurface& surf, const Point& uv)
   // If the parameter domain is described by (u, v) and the arc length
   // parameterization of the curve represented by 't', then the entries of the
   // returned array will be: [du/dt, dv/dt, d2u/dt2, d2v/dt2].
+  double a_tol = 1.0e-10;
   static vector<Point> tmp(6, {0.0, 0.0});
     
   surf.point(tmp, p[0], p[1], 2);  // evaluate surface and its first and second
@@ -328,6 +330,9 @@ inline bool is_point_on_boundary(const SplineSurface& surf, const Point& uv)
   const double dsdv2 = pow(ds_dv, 2);
 
   const double n = sqrt(dsdu2 + dsdv2);
+  if (n < a_tol)
+    return Array4{0.0, 0.0, 0.0, 0.0};  // Singular situation
+
   const double a = 1.0 / n;
   const double da_dt = pow(a, 4) *
     (d2s_dudv * (dsdu2 - dsdv2) + ds_du * ds_dv * (d2s_dv2 - d2s_du2));
@@ -1394,7 +1399,14 @@ CurveVec compute_levelset(const SplineSurface& ss,
 	if (nguide > 1)
 	  avd /= (double)(nguide-1);
 
-	if (ic->itype == 7 && nguide > 2)
+	if (ic->pgeom != 0 && ic->ppar1 != 0)
+	  {
+	    // No need to trace. Curves already exist
+	    shared_ptr<SplineCurve> pcv(SISLCurve2Go(ic->ppar1));
+	    shared_ptr<SplineCurve> gcv(SISLCurve2Go(ic->pgeom));
+	    return IsectCurve {pcv, gcv};
+	  }
+	else if (ic->itype == 7 && nguide > 2)
 	  {
 	    // Curve starts and ends in singular point. Trace from
 	    // midpoint in both directions

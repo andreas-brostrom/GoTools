@@ -48,7 +48,7 @@
 #include <fstream>
 #include <iostream>
 
-#define DEBUG
+//#define DEBUG
 
 using std::vector;
 using std::pair;
