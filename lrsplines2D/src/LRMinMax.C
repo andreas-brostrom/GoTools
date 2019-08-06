@@ -198,7 +198,8 @@ LRMinMax::computeMinMaxPoints(shared_ptr<ParamSurface> surface,
 							true));
 
       shared_ptr<BoundedSurface> sub_bd(new BoundedSurface(sub_sfs[0],
-							   trim_cvs, epsge));
+							   trim_cvs, epsge,
+							   false));
 
       // Check surface configuration
       double upar, vpar;
@@ -315,7 +316,8 @@ void LRMinMax::computeExtremalPoints(shared_ptr<ParamSurface> surface,
 	  curr_loop.push_back(sfcv2);
 	}
       shared_ptr<BoundedSurface> bdsurf2(new BoundedSurface(curr_tp, curr_loop,
-							    epsge));
+							    epsge,
+							    false));
 #ifdef DEBUG
       std::ofstream of0("tp_bd.g2");
       bdsurf2->writeStandardHeader(of0);
@@ -589,6 +591,19 @@ extractInnerCurves(vector<pair<vector<shared_ptr<ParamCurve> >, double> >& cvs,
 	  size_t ix1 = (size1 < size2) ? ki : kj;
 	  size_t ix2 = (ix1 == kj) ? ki : kj;
 
+#ifdef DEBUG2
+	  std::ofstream ofi("curr_inner_cvs.g2");
+	  for (size_t kj2=0; kj2<cvs[ix1].first.size(); ++kj2)
+	    {
+	      cvs[ix1].first[kj2]->writeStandardHeader(ofi);
+	      cvs[ix1].first[kj2]->write(ofi);
+	    }
+	  for (size_t kj2=0; kj2<cvs[ix2].first.size(); ++kj2)
+	    {
+	      cvs[ix2].first[kj2]->writeStandardHeader(ofi);
+	      cvs[ix2].first[kj2]->write(ofi);
+	    }
+#endif
 	  int ka = 0;
 	  for (ka=0; ka<2; ++ka)
 	    {
@@ -597,6 +612,20 @@ extractInnerCurves(vector<pair<vector<shared_ptr<ParamCurve> >, double> >& cvs,
 	      Point pos = 
 		cvs[ix1].first[0]->ParamCurve::point(0.5*(cvs[ix1].first[0]->startparam()+
 							  cvs[ix1].first[0]->endparam()));
+
+#ifdef DEBUG2
+	      ofi << "400 1 0 4 255 0 0 255" << std::endl;
+	      ofi << "1" << std::endl;
+	      ofi << pos[0] << " " << pos[1] << " 0.0" << std::endl;
+#endif
+
+	      // Check if this curve loop may lie inside the other
+	      if (pos[0] <= bbox[ix2].low()[0] || 
+		  pos[0] >= bbox[ix2].high()[0] ||
+		  pos[1] <= bbox[ix2].low()[1] || 
+		  pos[1] >= bbox[ix2].high()[1])
+		continue;
+
 	      shared_ptr<CurveLoop> cvloop(new CurveLoop(cvs[ix2].first, eps, false));
 	      CurveBoundedDomain cvdom(cvloop);
 
