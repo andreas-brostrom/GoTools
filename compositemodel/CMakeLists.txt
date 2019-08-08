@@ -16,6 +16,7 @@ INCLUDE_DIRECTORIES(
   ${GoIntersections_SOURCE_DIR}/include
   ${GoImplicitization_SOURCE_DIR}/include
   ${GoIgeslib_SOURCE_DIR}/include
+  ${GoLRspline2D_SOURCE_DIR}/include
   ${GoToolsCore_SOURCE_DIR}/include
   ${GoTools_COMMON_INCLUDE_DIRS}
   ${PUGIXML_INCLUDE_DIR}
@@ -30,6 +31,7 @@ SET(DEPLIBS
   GoIntersections
   GoImplicitization
   GoIgeslib
+  GoLRspline2D
   GoToolsCore
   ttl
   sisl

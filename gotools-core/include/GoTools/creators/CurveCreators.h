@@ -158,6 +158,16 @@ namespace CurveCreators
 		  double tol, int degree=3,
 		  int nmb_init_sample_pr_seg=10);
 
+    /// Iterate to an intersection curve between two surfaces
+    /// based on a guiding curve
+    void
+      guidedIntersectionCurve(shared_ptr<CurveOnSurface>& cv1,
+			      double start1, double end1,
+			      shared_ptr<CurveOnSurface>& cv2,
+			      double start2, double end2, double epsge,
+			      shared_ptr<CurveOnSurface>& int_cv1,
+			      shared_ptr<CurveOnSurface>& int_cv2);
+
     /// Project the space_cv into parameter domain given by surf.
     /// start_par_pt (& end*_ not needed, but useful to ensure correct evaluation.
 

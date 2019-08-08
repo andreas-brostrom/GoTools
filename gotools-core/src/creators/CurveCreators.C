@@ -47,6 +47,7 @@
 #include "GoTools/geometry/GoIntersections.h"
 #include "GoTools/creators/ApproxCurve.h"
 #include "GoTools/creators/ProjectCurve.h"
+#include "GoTools/creators/IntCrvEvaluator.h"
 #include "GoTools/creators/HermiteAppC.h"
 #include "GoTools/creators/HermiteAppS.h"
 #include "GoTools/creators/LiftCurve.h"
@@ -68,7 +69,8 @@
 
 // #ifndef NDEBUG
 // #ifndef DEBUG
-//#define DEBUG
+// #define DEBUG
+//#define DEBUG_ADAPT
 // #endif // DEBUG
 // #endif // NDEBUG
 
@@ -587,6 +589,160 @@ CurveCreators::projectCurve(shared_ptr<ParamCurve>& space_cv,
 
 
 //===========================================================================
+void
+CurveCreators::guidedIntersectionCurve(shared_ptr<CurveOnSurface>& cv1,
+				       double start1, double end1,
+				       shared_ptr<CurveOnSurface>& cv2,
+				       double start2, double end2, double epsge,
+				       shared_ptr<CurveOnSurface>& int_cv1,
+				       shared_ptr<CurveOnSurface>& int_cv2)
+//===========================================================================
+{
+  shared_ptr<ParamSurface> srf1 = cv1->underlyingSurface();
+  shared_ptr<ParamSurface> srf2 = cv2->underlyingSurface();
+
+  // Check if the input curves have a corresponding orientation
+  Point p11 = cv1->ParamCurve::point(start1);
+  Point p12 = cv1->ParamCurve::point(end1);
+  Point p21 = cv2->ParamCurve::point(start2);
+  Point p22 = cv2->ParamCurve::point(end2);
+  bool same_orientation = 
+    (p11.dist(p21) + p12.dist(p22) < p11.dist(p22) + p12.dist(p21));
+
+  // Create evaluator curve
+  int keep_crv = false;
+  shared_ptr<IntCrvEvaluator> int_crv = 
+    shared_ptr<IntCrvEvaluator>(new IntCrvEvaluator(cv1, start1, end1,
+						    cv2, start2, end2,
+						    same_orientation,
+						    keep_crv));
+  // Define approximator
+  vector<int> dims(3);
+  dims[0] = cv1->dimension();
+  dims[1] = dims[2] = 2;  // Curves in the parameter domain
+  shared_ptr<HermiteAppS> approximator;
+  approximator = 
+    shared_ptr<HermiteAppS>(new HermiteAppS(int_crv.get(), epsge, epsge, dims));
+
+  double max_dist = 0.0;
+  try {
+    // Approximate
+    approximator->refineApproximation();
+    max_dist = int_crv->getMaxErr();
+  }
+  catch (...)
+    {
+      max_dist = int_crv->getMaxErr();
+#ifdef DEBUG
+      std::ofstream out("distant_sfs.g2");
+      srf1->writeStandardHeader(out);
+      srf1->write(out);
+      srf2->writeStandardHeader(out);
+      srf2->write(out);
+#endif
+
+    }
+  // Fetch curves
+  vector<shared_ptr<SplineCurve> > crvs = approximator->getCurves();
+
+  // Check if the new curves are large enough
+  Point p13 = cv1->ParamCurve::point(cv1->startparam());
+  Point p14 = cv1->ParamCurve::point(cv1->endparam());
+  Point p23 = cv2->ParamCurve::point(cv2->startparam());
+  Point p24 = cv2->ParamCurve::point(cv2->endparam());
+  
+  shared_ptr<SplineCurve> space_crv1 = crvs[0];
+  shared_ptr<SplineCurve> space_crv2 = 
+    shared_ptr<SplineCurve>(crvs[0]->clone());
+  shared_ptr<SplineCurve> param_crv1 = crvs[1];
+  shared_ptr<SplineCurve> param_crv2 = crvs[2];
+  
+  if (!same_orientation)
+    {
+      space_crv2->reverseParameterDirection();
+      param_crv2->reverseParameterDirection();
+    }
+  
+  // Ensure that the parameter interval of the new curves related
+      // to the second boundary curve corresponds to the boundary curve
+  space_crv2->setParameterInterval(start2, end2);
+  param_crv2->setParameterInterval(start2, end2);
+  
+  if (p11.dist(p13) > epsge)
+    {
+      // Boundary curve 1 must be extended at the start. Fetch the
+      // appropriate piece from the initial curve
+      shared_ptr<CurveOnSurface> sub1 =
+	shared_ptr<CurveOnSurface>(cv1->subCurve(cv1->startparam(),
+						    start1));
+      shared_ptr<SplineCurve> space = 
+	shared_ptr<SplineCurve>(sub1->spaceCurve()->geometryCurve());
+      shared_ptr<SplineCurve> param = 
+	shared_ptr<SplineCurve>(sub1->parameterCurve()->geometryCurve());
+      double dist1, dist2;
+      space->appendCurve(space_crv1.get(), 1, dist1, false);
+      param->appendCurve(param_crv1.get(), 1, dist2, false);
+      space_crv1 = space;
+      param_crv1 = param;
+    }
+
+  if (p12.dist(p14) > epsge)
+    {
+      // Boundary curve 1 must be extended at the end. Fetch the
+      // appropriate piece from the initial curve
+      shared_ptr<CurveOnSurface> sub1 =
+	shared_ptr<CurveOnSurface>(cv1->subCurve(end1, cv1->endparam()));
+      shared_ptr<SplineCurve> space = 
+	shared_ptr<SplineCurve>(sub1->spaceCurve()->geometryCurve());
+      shared_ptr<SplineCurve> param = 
+	shared_ptr<SplineCurve>(sub1->parameterCurve()->geometryCurve());
+      double dist1, dist2;
+      space_crv1->appendCurve(space.get(), 1, dist1, false);
+      param_crv1->appendCurve(param.get(), 1, dist2, false);
+    }
+  
+  if (p21.dist(p23) > epsge)
+    {
+      // Boundary curve 2 must be extended at the start. Fetch the
+      // appropriate piece from the initial curve
+      shared_ptr<CurveOnSurface> sub1 =
+	shared_ptr<CurveOnSurface>(cv2->subCurve(cv2->startparam(), start2));
+      shared_ptr<SplineCurve> space = 
+	shared_ptr<SplineCurve>(sub1->spaceCurve()->geometryCurve());
+      shared_ptr<SplineCurve> param = 
+	shared_ptr<SplineCurve>(sub1->parameterCurve()->geometryCurve());
+      double dist1, dist2;
+      space->appendCurve(space_crv2.get(), 1, dist1, false);
+      param->appendCurve(param_crv2.get(), 1, dist2, false);
+      space_crv2 = space;
+      param_crv2 = param;
+    }
+  
+  if (p22.dist(p24) > epsge)
+    {
+      // Boundary curve 2 must be extended at the end. Fetch the
+      // appropriate piece from the initial curve
+      shared_ptr<CurveOnSurface> sub1 =
+	shared_ptr<CurveOnSurface>(cv2->subCurve(end2, cv2->endparam()));
+      shared_ptr<SplineCurve> space = 
+	shared_ptr<SplineCurve>(sub1->spaceCurve()->geometryCurve());
+      shared_ptr<SplineCurve> param = 
+	shared_ptr<SplineCurve>(sub1->parameterCurve()->geometryCurve());
+      double dist1, dist2;
+      space_crv2->appendCurve(space.get(), 1, dist1, false);
+      param_crv2->appendCurve(param.get(), 1, dist2, false);
+    }
+
+  // Create intersection curves
+  int_cv1 = shared_ptr<CurveOnSurface>(new CurveOnSurface(srf1, param_crv1, 
+							  space_crv1, false));
+  int_cv1->setCurveTypeInfo(2);
+  int_cv2 = shared_ptr<CurveOnSurface>(new CurveOnSurface(srf2, param_crv2, 
+							  space_crv2, false));
+  int_cv2->setCurveTypeInfo(2);
+ }
+
+ //===========================================================================
 SplineCurve*
 CurveCreators::projectSpaceCurve(shared_ptr<ParamCurve>& space_cv,
 				 shared_ptr<ParamSurface>& surf,
