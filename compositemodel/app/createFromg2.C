@@ -46,6 +46,9 @@
 #include "GoTools/compositemodel/ftSurface.h"
 #include "GoTools/compositemodel/CompositeModelFactory.h"
 #include "GoTools/compositemodel/CompositeModelFileHandler.h"
+#include "GoTools/geometry/SurfaceTools.h"
+#include "GoTools/geometry/CurveLoop.h"
+#include "GoTools/geometry/CurveOnSurface.h"
 #include <fstream>
 
 //using namespace std;
@@ -108,14 +111,39 @@ int main( int argc, char* argv[] )
 	  bdcv.writeSpaceCurve(out_file2);
       }
 
-      // Create Body
+      std::ofstream out_file3("geo_crvs.g2");
+      for (ki=0; ki<nmb; ki++)
+      {
+	shared_ptr<ParamSurface> surf = sfmodel->getSurface(ki);
+	vector<CurveLoop> sf_loops = 
+	  SurfaceTools::allBoundarySfLoops(surf, gap);
+	for (size_t kj=0; kj<sf_loops.size(); ++kj)
+	  {
+	    int nmb_cvs = sf_loops[kj].size();
+	    for (int kr=0; kr<nmb_cvs; ++kr)
+	      {
+		shared_ptr<ParamCurve> cv = sf_loops[kj][kr];
+		shared_ptr<CurveOnSurface> sf_cv = 
+		  dynamic_pointer_cast<CurveOnSurface, ParamCurve>(cv);
+		if (sf_cv.get())
+		  {
+		    cv = sf_cv->spaceCurve();
+		  }
+		cv->writeStandardHeader(out_file3);
+		cv->write(out_file3);
+	      }
+	  }
+      }
+      
+      
+     // Create Body
       shared_ptr<Body> body(new Body(model2, 1));
-      std::ofstream out_file3("model.g22");
+      std::ofstream out_file4("model.g22");
       CompositeModelFileHandler filehandler;
-      filehandler.writeStart(out_file3);
-      filehandler.writeHeader("Translated from g2", out_file3);
-      filehandler.writeBody(body, out_file3);
-      filehandler.writeEnd(out_file3);
+      filehandler.writeStart(out_file4);
+      filehandler.writeHeader("Translated from g2", out_file4);
+      filehandler.writeBody(body, out_file4);
+      filehandler.writeEnd(out_file4);
   }
 
   delete model;
