@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
     }
 #endif
 
-    double scale_z_factor = 5.0;
+    double scale_z_factor = 1.0; //5.0;
     if (scale_z_factor != 1.0)
     {
 	cout << "\nRescaling the z dimension of the surface by a factor of " << scale_z_factor << "!\n" << endl;

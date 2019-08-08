@@ -37,72 +37,45 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifdef __BORLANDC__
-#include <vcl.h>
-#endif
-
 #include "GoTools/compositemodel/SurfaceModel.h"
-#include "GoTools/utils/Point.h"
 #include "GoTools/compositemodel/CompositeModelFileHandler.h"
-#include "GoTools/geometry/ParamSurface.h"
-
-#include <iostream>
 #include <fstream>
-#include <stdlib.h> // For atof()
-using namespace std;
+
 using namespace Go;
-
-
-
 
 int main( int argc, char* argv[] )
 {
-#ifdef __BORLANDC__
-  using Go::Point;
-#endif
-
-  // Test number of input arguments
-  if (argc != 3)
-    {
-      std::cout << "File in (g22)" << ", file out (g2)" << std::endl;
-      exit(-1);
-    }
-
+  if (argc != 2) {
+    std::cout << "Input parameters : Input file on g22 format," << std::endl;
+    exit(-1);
+  }
 
   // Read input arguments
-  char* filein(argv[1]);
-  std::ofstream fileout(argv[2]);
+  std::string file1(argv[1]);
 
-  CompositeModelFileHandler fileread1;
-  shared_ptr<SurfaceModel> shell;
-  shared_ptr<Body> body = fileread1.readBody(filein);
-  if (!body.get())
-    {
-      shell = fileread1.readShell(filein);
-      if (!shell.get())
-	exit(1);
-    }
-  else
-    {
-      shell = body->getOuterShell();
-    }
+  CompositeModelFileHandler filehandler;
+  SurfaceModel sfmodel = filehandler.readSurfModel(file1.c_str());
 
-  int nmb = shell->nmbEntities();
-  for (int ki=0; ki<nmb; ++ki)
+  std::ofstream of("point_normal.g2");
+
+  int nmb_sfs = sfmodel.nmbEntities();
+  for (int ki=0; ki<nmb_sfs; ++ki)
     {
-      shared_ptr<ParamSurface> surf = shell->getSurface(ki);
+      shared_ptr<ParamSurface> surf = sfmodel.getSurface(ki);
       double upar, vpar;
-      Point pos = surf->getInternalPoint(upar, vpar);
+      surf->getInternalPoint(upar, vpar);
+      Point pos = surf->point(upar, vpar);
       Point norm;
       surf->normal(norm, upar, vpar);
-      Point pos2 = pos + norm;
-      
-      fileout << "400 1 0 4 255 0 0 255" << std::endl;
-      fileout << "1" << std::endl;
-      fileout << pos << endl;
-      fileout << "410 1 0 4 255 0 0 255" << std::endl;
-      fileout << "1" << std::endl;
-      fileout << pos << " " << pos2 << endl;
+      norm *= 0.01;
+      of << "400 1 0 4 255 0 0 255" << std::endl;
+      of << "1" << std::endl;
+      of << pos << std::endl;
+      of << "410 1 0 4 255 0 0 255" << std::endl;
+      of << "1" << std::endl;
+      of << pos << " " << pos+norm << std::endl;
     }
-
 }
+
+  
+ 

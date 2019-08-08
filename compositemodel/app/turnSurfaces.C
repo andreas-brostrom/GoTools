@@ -39,6 +39,8 @@
 
 #include "GoTools/geometry/ParamSurface.h"
 #include "GoTools/igeslib/IGESconverter.h"
+#include "GoTools/compositemodel/CompositeModelFileHandler.h"
+#include "GoTools/compositemodel/SurfaceModel.h"
 #include "GoTools/utils/errormacros.h"
 #include <fstream>
 
@@ -47,36 +49,77 @@ using namespace Go;
 
 int main( int argc, char* argv[] )
 {
-  if (argc != 3) {
-    std::cout << "Input parameters : Input file on g2 format, output file" << std::endl;
+  if (argc != 4) {
+    std::cout << "Input parameters : Input file on (g22/g2) format, output file, file type" << std::endl;
     exit(-1);
   }
 
   // Read input arguments
-  std::ifstream file1(argv[1]);
-  ALWAYS_ERROR_IF(file1.bad(), "Input file not found or file corrupt");
+  char* file1(argv[1]);
 
   std::ofstream file2(argv[2]);
   ALWAYS_ERROR_IF(file2.bad(), "Bad or no output filename");
 
-  IGESconverter conv;
-  conv.readgo(file1);
-  vector<shared_ptr<GeomObject> > gogeom = conv.getGoGeom();
-  int nmbgeom = (int)gogeom.size();
-  for (int i=0; i<nmbgeom; i++)
+  int type = atoi(argv[3]);
+
+  if (type == 1)
     {
-      if (gogeom[i].get() == 0)
-	continue;
-      shared_ptr<GeomObject> lg = gogeom[i];
+      std::ifstream is(file1);
+      IGESconverter conv;
+      conv.readgo(is);
+      vector<shared_ptr<GeomObject> > gogeom = conv.getGoGeom();
+      int nmbgeom = (int)gogeom.size();
+      for (int i=0; i<nmbgeom; i++)
+	{
+	  if (gogeom[i].get() == 0)
+	    continue;
+	  shared_ptr<GeomObject> lg = gogeom[i];
 
-      shared_ptr<ParamSurface> sf =
-	dynamic_pointer_cast<ParamSurface, GeomObject>(lg);
+	  shared_ptr<ParamSurface> sf =
+	    dynamic_pointer_cast<ParamSurface, GeomObject>(lg);
 
-      sf->swapParameterDirection();
+	  sf->swapParameterDirection();
 
-      sf->writeStandardHeader(file2);
-      sf->write(file2);
+	  sf->writeStandardHeader(file2);
+	  sf->write(file2);
+	}
+    }
+  else
+    {
+      shared_ptr<SurfaceModel> shell;
 
+      CompositeModelFileHandler fileread;
+      shared_ptr<Body> body = fileread.readBody(file1);
+      if (!body.get())
+	{
+	  shell = fileread.readShell(file1);
+	  if (!shell.get())
+	    exit(1);
+	}
+      else
+	{
+	  shell = body->getOuterShell();
+	}
+
+      int nmb = shell->nmbEntities();
+      vector<shared_ptr<ParamSurface> > all_sfs;
+      for (int ki=0; ki<nmb; ++ki)
+	{
+	  shared_ptr<ParamSurface> surf = shell->getSurface(ki);
+	  surf->swapParameterDirection();
+	  all_sfs.push_back(surf);
+	}
+
+      tpTolerances tptol = shell->getTolerances();
+      shared_ptr<SurfaceModel> shell2(new SurfaceModel(tptol.gap, tptol.gap,
+						       tptol.neighbour,
+						       tptol.kink, tptol.bend,
+						       all_sfs));
+      CompositeModelFileHandler filewrite;
+      filewrite.writeStart(file2);
+      filewrite.writeHeader("Turned orientation", file2);
+      filewrite.writeSurfModel(*shell2, file2);
+      filewrite.writeEnd(file2);
     }
 }
 

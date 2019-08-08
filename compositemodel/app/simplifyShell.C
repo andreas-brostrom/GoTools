@@ -38,9 +38,11 @@
  */
 
 #include "GoTools/compositemodel/SurfaceModel.h"
+#include "GoTools/compositemodel/SurfaceModelUtils.h"
 #include "GoTools/compositemodel/ftSurface.h"
 #include "GoTools/compositemodel/CompositeModelFactory.h"
 #include "GoTools/compositemodel/RegularizeFaceSet.h"
+#include "GoTools/compositemodel/CompositeModelFileHandler.h"
 #include <fstream>
 
 //using namespace std;
@@ -48,40 +50,92 @@ using namespace Go;
 
 int main( int argc, char* argv[] )
 {
-  if (argc != 3) {
-    std::cout << "Input parameters : Input file(g2), output file" << std::endl;
+  if (argc != 6) {
+    std::cout << "Input parameters : Input file(g2/g22), type of input file, nest stimplify step (0/1), output file, output g22 (0/1)" << std::endl;
     exit(-1);
   }
 
   // Read input arguments
-  std::ifstream file1(argv[1]);
-  ALWAYS_ERROR_IF(file1.bad(), "Input file not found or file corrupt");
+  std::string file1(argv[1]);
 
-  std::ofstream file2(argv[2]);
+  int file_type = atoi(argv[2]);
+  int simplify2 = atoi(argv[3]);
+  std::ofstream file2(argv[4]);
+  bool g22 = atoi(argv[5]);
 
-  double gap = 0.0001; // 0.001;
-  double neighbour = 0.001; // 0.01;
-  double kink = 0.01;
-  double approxtol = 0.001;
+  shared_ptr<SurfaceModel> sfmodel;
+  if (file_type == 1)
+    {
+      // The tolerances must be set according to the properties of the model.
+      // The neighbour tolerance must be smaller than the smallest entity in the
+      // model, but larger than the largest gap.
+      // The gap tolerance must be smaller than the neighbour tolerance
+      double gap = 0.0001; // 0.001;
+      double neighbour = 0.001; // 0.01;
+      double kink = 0.01;
+      double approxtol = 0.001;
+      
+      CompositeModelFactory factory(approxtol, gap, neighbour, kink, 10.0*kink);
+      
+      std::ifstream is(file1);
+      CompositeModel *model = factory.createFromG2(is);
+      
+      sfmodel =  
+	shared_ptr<SurfaceModel>(dynamic_cast<SurfaceModel*>(model));
+    }
+  else
+    {
+      CompositeModelFileHandler filehandler;
+      sfmodel = filehandler.readShell(file1.c_str());
+    }
 
-  CompositeModelFactory factory(approxtol, gap, neighbour, kink, 10.0*kink);
+  if (sfmodel)
+    {
+      int degree = 3;
 
-  CompositeModel *model = factory.createFromG2(file1);
+      if (simplify2 == 2)
+	{
+	  try {
+	    SurfaceModelUtils::simplifySurfaceModel2(sfmodel, degree);
+	  }
+	  catch (...)
+	    {
+	      ;
+	    }
+	}
+      else if (simplify2 == 1)
+	{
+	  try {
+	    SurfaceModelUtils::simplifySurfaceModel(sfmodel, degree);
+	  }
+	  catch (...)
+	    {
+	      ;
+	    }
+	}
+      else
+	sfmodel->simplifyShell();
+      
 
-  shared_ptr<SurfaceModel> sfmodel =  
-    shared_ptr<SurfaceModel>(dynamic_cast<SurfaceModel*>(model));
 
-   if (sfmodel)
-  {
-    sfmodel->simplifyShell();
-    
-    int nmb = sfmodel->nmbEntities();
-    for (int ki=0; ki<nmb; ++ki)
-      {
-	shared_ptr<ParamSurface> surf = sfmodel->getSurface(ki);
-	surf->writeStandardHeader(file2);
-	surf->write(file2);
-      }
-  }
+      if (g22)
+	{
+	  CompositeModelFileHandler filehandler;
+	  filehandler.writeStart(file2);
+	  filehandler.writeHeader("Simplified model", file2);
+	  filehandler.writeSurfModel(*sfmodel, file2);
+	  filehandler.writeEnd(file2);
+	}
+      else
+	{
+	  int nmb = sfmodel->nmbEntities();
+	  for (int ki=0; ki<nmb; ++ki)
+	    {
+	      shared_ptr<ParamSurface> surf = sfmodel->getSurface(ki);
+	    surf->writeStandardHeader(file2);
+	    surf->write(file2);
+	    }
+	}
+    }
 }
 
