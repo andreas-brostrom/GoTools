@@ -843,7 +843,7 @@ CreatorsUtils::fixTrimCurves(shared_ptr<Go::BoundedSurface> bd_sf,
   // First remove small curves in trimming loops
   bd_sf->removeSmallBoundaryCurves(gap, neighbour, kink);
 
-    int kj, kk, kh;
+  int ki, kj, kk, kh;
     int nmb_loops = bd_sf->numberOfLoops();
     shared_ptr<ParamSurface> under_sf = bd_sf->underlyingSurface();
     shared_ptr<ParamSurface> orig_under_sf = under_sf;
@@ -1292,7 +1292,63 @@ CreatorsUtils::fixTrimCurves(shared_ptr<Go::BoundedSurface> bd_sf,
         vector<shared_ptr<ParamCurve> > cvs(loop_cvs.begin(),
                                             loop_cvs.end());
         loop->setCurves(cvs);
+
+	// Ensure closed loop
+	double maxdist = loop->getMaxCurveDist();
+	if (maxdist > neighbour)
+	  {
+	    // Identify gap
+	    vector<shared_ptr<ParamCurve> > new_loop_cvs;
+	    int nmb = loop->size();
+	    for (ki=0, kj=std::min(nmb-1,1); ki<nmb; ++ki, kj=(kj+1)%nmb)
+	      {
+		shared_ptr<ParamCurve> cv1 = (*loop)[ki];
+		shared_ptr<ParamCurve> cv2 = (*loop)[kj];
+		Point pos1 = cv1->point(cv1->endparam());
+		Point pos2 = cv2->point(cv2->startparam());
+		new_loop_cvs.push_back(cv1);
+		if (pos1.dist(pos2) > neighbour)
+		  {
+		    // Create curve in the parameter domain of the surface
+		    Point par1, par2;
+		    shared_ptr<CurveOnSurface> sf_cv1 = 
+		      dynamic_pointer_cast<CurveOnSurface,ParamCurve>(cv1);
+		    shared_ptr<CurveOnSurface> sf_cv2 = 
+		      dynamic_pointer_cast<CurveOnSurface,ParamCurve>(cv2);
+		    if (sf_cv1.get())
+		      par1 = sf_cv1->faceParameter(cv1->endparam());
+		    else
+		      {
+			double upar, vpar, dist;
+			Point clo_pt;
+			under_sf->closestPoint(pos1, upar, vpar, clo_pt,
+					       dist, gap);
+			par1 = Point(upar,vpar);
+		      }
+		    if (sf_cv2.get())
+		      par2 = sf_cv2->faceParameter(cv2->startparam());
+		    else
+		      {
+			double upar, vpar, dist;
+			Point clo_pt;
+			under_sf->closestPoint(pos2, upar, vpar, clo_pt,
+					       dist, gap);
+			par2 = Point(upar,vpar);
+		      }
+		    shared_ptr<ParamCurve> parcv(new SplineCurve(par1, 0.0,
+								 par2, 
+								 pos1.dist(pos2)));
+		    shared_ptr<CurveOnSurface> new_cv(new CurveOnSurface(under_sf,
+									 parcv,
+									 true));
+		    new_cv->ensureSpaceCrvExistence(gap);
+		    new_loop_cvs.push_back(new_cv);
+		  }
+	      }
+	    loop->setCurves(new_loop_cvs);
+	  }
     }
+
 
 #ifdef SBR_DBG
     {
