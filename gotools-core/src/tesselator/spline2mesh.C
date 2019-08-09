@@ -1797,6 +1797,7 @@ namespace Go
     vector< vector<Vector3D> > trim_curve_all(crv_set.size()), trim_curve_p_all(crv_set.size());
     for (int c=0; c<int(crv_set.size()); c++)
       {
+	double acc_dist = 0.0;
 	vector<Vector3D> &trim_curve   = trim_curve_all[c];
 	vector<Vector3D> &trim_curve_p = trim_curve_p_all[c];
 
@@ -1819,12 +1820,20 @@ namespace Go
 		THROW("Unexpected incident.");
 	      }
 	    if (knot_mult > kk - 2) // A kink
-	      corner_pars.push_back(st[knot_ind]);
+	      {
+		corner_pars.push_back(st[knot_ind]);
+		double len = corner_pars[corner_pars.size()-1]-
+		  corner_pars[corner_pars.size()-2];
+		acc_dist += len;
+	      }
 	  
 	    knot_ind += knot_mult;
 	  }
       
 	corner_pars.push_back(st[kn]);
+	double len = corner_pars[corner_pars.size()-1]-
+	  corner_pars[corner_pars.size()-2];
+	acc_dist += len;
       
 	int n2 = 200/(int)(corner_pars.size() - 1); //200; //std::max(200, 4*n); @@sbr Should be const.
 	n2 = std::max(n2, 2);
@@ -1832,11 +1841,14 @@ namespace Go
 	// 100212: For debugging/testing:
 	// int n2 = 30/(corner_pars.size() - 1); //200; //std::max(200, 4*n); @@sbr Should be const.
 
+	double ref_dist = acc_dist/(double)(corner_pars.size()-1);
 	for (i = 0; i < int(corner_pars.size()) - 1; ++i)
 	  {
 	    double t0=corner_pars[i];
 	    double t1=corner_pars[i+1];
-	    double tstep = (t1 - t0)/(n2-1);
+	    int n3 = (int)((double)n2*(t1-t0)/ref_dist);
+	    n3 = std::max(n3, 2);
+	    double tstep = (t1 - t0)/(n3-1);
 	    //   for (i=0; i<n2; i++)
 	    double t = t0;
 	    double ref_step = tstep;
