@@ -57,6 +57,7 @@ namespace Go
   class BoundedSurface;
   class CurveOnSurface;
   class ftPointSet;
+  class ftEdge;
 
   namespace SurfaceModelUtils
   {
@@ -152,6 +153,15 @@ namespace Go
       reduceUnderlyingSurface(shared_ptr<BoundedSurface>& bd_sf,
 			      std::vector<shared_ptr<CurveOnSurface> >& cvs);
 
+    void limitUnderlyingSurfaces(shared_ptr<SurfaceModel>& model);
+
+    int getParameterDirection(ftSurface* face1, ftSurface* face2,
+			      shared_ptr<ftEdge> edge1,
+			      shared_ptr<ftEdge> edge2,
+			      double eps, int& pardir);
+
+    bool
+      c1AtEdge(ftEdge *edge1, ftEdge *edge2, double eps, double angtol);
   }
 }
 #endif

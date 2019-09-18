@@ -175,6 +175,9 @@ public:
     /// Compute the intersections with this box and a line
     std::vector<Point> lineIntersect(const Point& p1, const Point& dir) const;
 
+    /// Compute distance between point and box
+    double dist(const Point& pt) const;
+
     /// Is the bounding box initialized?
     bool valid() const { return valid_; }
 

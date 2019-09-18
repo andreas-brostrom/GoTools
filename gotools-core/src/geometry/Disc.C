@@ -366,6 +366,17 @@ void Disc::read (std::istream& is)
 
 
   //===========================================================================
+  shared_ptr<ParamCurve> 
+  Disc::constParamCurve(double parameter, bool pardir_is_u) const
+  //===========================================================================
+  {
+    MESSAGE("constParamCurve() not yet implemented");
+    shared_ptr<ParamCurve> res;
+    return res;
+  }
+
+
+  //===========================================================================
   Disc* Disc::subSurface(double from_upar, double from_vpar,
 			 double to_upar, double to_vpar,
 			 double fuzzy) const

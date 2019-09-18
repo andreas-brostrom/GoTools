@@ -109,6 +109,11 @@ class RegularizeFace
     no_connect_vxs_.push_back(no_connect_vx);
   }
 
+  void setRotationalMode(int rotational_mode)
+  {
+    rotational_mode_ = rotational_mode;
+  }
+
   void setSplitMode(int split_mode)
   {
     split_mode_ = split_mode;
@@ -206,6 +211,7 @@ class RegularizeFace
   double radius_;
 
   int split_mode_;
+  int rotational_mode_;
   int divideInT_;
   bool top_level_;
   double isolate_fac_;
@@ -295,6 +301,10 @@ class RegularizeFace
 
  shared_ptr<Vertex> 
     getSignificantVertex(std::vector<shared_ptr<Vertex> > cand_vx);
+
+ std::vector<shared_ptr<Vertex> >
+   prioritizeAxisVx(std::vector<shared_ptr<Vertex> >& cand_vx, int& nmb_sorted,
+		    std::vector<shared_ptr<Vertex> >& opposite_vx);
 
  std::vector<shared_ptr<Vertex> >
    prioritizeCornerVx(std::vector<shared_ptr<Vertex> > cand_vx, 

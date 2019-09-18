@@ -483,11 +483,23 @@ Plane::constParamCurves(double parameter, bool pardir_is_u) const
 //===========================================================================
 {
   vector<shared_ptr<ParamCurve> > res;
+  shared_ptr<ParamCurve> cv = constParamCurve(parameter, pardir_is_u);
+  res.push_back(cv);
+  return res;
+}
+
+//===========================================================================
+shared_ptr<ParamCurve> 
+Plane::constParamCurve(double parameter, bool pardir_is_u) const
+//===========================================================================
+{
+  shared_ptr<ParamCurve> res;
   bool udir = isSwapped() ? (!pardir_is_u) : pardir_is_u;
 
   if (!isBounded())
     {
       MESSAGE("constParamCurves() not supported for unbounded plane!");
+      return res;
     }
   //else if ((!pardir_is_u) || (pardir_is_u && isSwapped()))
   else if (!udir)
@@ -501,7 +513,7 @@ Plane::constParamCurves(double parameter, bool pardir_is_u) const
       getOrientedParameters(par2[0], par2[1]);
       Point cv_max = ParamSurface::point(par2[0], par2[1]);
       shared_ptr<Line> line(new Line(cv_min, cv_max, vmin, vmax));
-      res.push_back(line);
+      return line;
     }
   else
     {
@@ -514,7 +526,7 @@ Plane::constParamCurves(double parameter, bool pardir_is_u) const
       getOrientedParameters(par2[0], par2[1]);
       Point cv_max = ParamSurface::point(par2[0], par2[1]);
       shared_ptr<Line> line(new Line(cv_min, cv_max, umin, umax));
-      res.push_back(line);
+      return line;
     }
   return res;
 }

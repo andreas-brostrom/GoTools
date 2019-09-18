@@ -4235,7 +4235,10 @@ RegularizeFaceSet::removeExtraDiv(bool all)
 					      seam_joints);
 
 		  if (merged.get())
-		    kj--;
+		    {
+		      kj--;
+		      nmb_faces = model_->nmbEntities();
+		    }
 		}
 	    }
 	}

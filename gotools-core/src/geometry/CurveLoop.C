@@ -42,6 +42,7 @@
 #include "GoTools/geometry/CurveOnSurface.h"
 #include "GoTools/geometry/orientCurves.h"
 #include "GoTools/geometry/SplineCurve.h"
+#include "GoTools/geometry/GoIntersections.h"
 #include <fstream>
 
 //#define DEBUG
@@ -52,6 +53,7 @@ using std::max;
 using std::min;
 using std::endl;
 using std::cerr;
+using std::pair;
 
 
 namespace Go {
@@ -319,6 +321,49 @@ void CurveLoop::closestParPoint(const Point& pt, int& clo_ind,
 
 }
 
+//===========================================================================
+  void CurveLoop::intersect(shared_ptr<ParamCurve> cv, double eps,
+			    vector<pair<int,double> >& intpar1,
+			    vector<double>& intpar2)
+  //===========================================================================
+  {
+    double a_tol = 1.0e-10;
+    int dim = cv->dimension();
+    for (size_t ki=0; ki<curves_.size(); ++ki)
+      {
+	shared_ptr<ParamCurve> cv2 = curves_[ki];
+	shared_ptr<CurveOnSurface> sfcv = 
+	  dynamic_pointer_cast<CurveOnSurface,ParamCurve>(cv2);
+	if (sfcv.get() && dim == 2)
+	  cv2 = sfcv->parameterCurve();
+	else if (sfcv.get())
+	  cv2 = sfcv->spaceCurve();
+	if (dim != cv2->dimension())
+	  THROW("Dimension mismatch in curve intersection");
+
+	vector<pair<double,double> > curr_ints;
+	intersectParamCurves(cv.get(), cv2.get(), eps, curr_ints);
+	for (size_t kj=0; kj<curr_ints.size(); ++kj)
+	  {
+	    intpar1.push_back(std::make_pair((int)ki,curr_ints[kj].second));
+	    intpar2.push_back(curr_ints[kj].first);
+	  }
+      }
+
+    // Sort with respect to input curve parameter. Second criterion is
+    // loop curve index
+    for (size_t ki=0; ki<intpar2.size(); ++ki)
+      for (size_t kj=ki+1; kj<intpar2.size(); ++kj)
+	{
+	  if (intpar2[kj] < intpar2[ki] ||
+	      (intpar2[kj] < intpar2[ki]+a_tol && 
+	       intpar1[kj].first < intpar1[ki].first))
+	    {
+	      std::swap(intpar1[ki], intpar1[kj]);
+	      std::swap(intpar2[ki], intpar2[kj]);
+	    }
+	}
+  }      
 
 //===========================================================================
     /// Return joint points between curves
@@ -661,6 +706,8 @@ bool CurveLoop::simplify(double tol, double ang_tol, double& max_dist)
       curves_.erase(curves_.begin()+ki);
 
       ki--;
+      if (curves_.size() <= 2)
+	return modified;   // Few curves
     }
       
   // Check whether the first and last curve may be joined

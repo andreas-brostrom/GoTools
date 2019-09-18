@@ -56,7 +56,7 @@
 
 using std::vector;
 
-//#define DEBUG
+#define DEBUG
 
 namespace Go
 {
@@ -276,6 +276,8 @@ SurfaceModel* CompositeModelFactory::createEmpty()
   int face_count = 0;
 
     // std::ofstream out_file("failure.g2");
+  double pihalf = 0.5*M_PI;
+  double teps = 1.0e-10;
   for (int i=0; i<nmbgeom; i++)
     {
       if (gogeom[i].get() == 0)
@@ -352,11 +354,32 @@ SurfaceModel* CompositeModelFactory::createEmpty()
 	      double umin, umax, vmin, vmax;
 	      // if (elem_sf->instanceType() == Class_Plane)
 	      // 	{
+	      int rotdir = elem_sf->rotationalDir();
+	      if (rotdir == 1 || rotdir == 3)
+		{
+		  for (umin=2*M_PI; umin>teps && umin>dom.umin()+teps; 
+		       umin-=pihalf);
+		  for (umax=0; umax<2*M_PI-teps && umax<dom.umax()-teps; 
+		       umax+=pihalf);
+		}
+	      else
+		{
 		  umin = dom.umin()-0.1*(dom.umax()-dom.umin());
 		  umax = dom.umax()+0.1*(dom.umax()-dom.umin());
+		}
+	      if (rotdir == 2 || rotdir == 3)
+		{
+		  for (vmin=2*M_PI; vmin>teps && vmin>dom.vmin()+teps; 
+		       vmin-=pihalf);
+		  for (vmax=0; vmax<2*M_PI-teps && vmax<dom.vmax()-teps; 
+		       vmax+=pihalf);
+		}
+	      else
+		{
 		  vmin = dom.vmin()-0.1*(dom.vmax()-dom.vmin());
 		  vmax = dom.vmax()+0.1*(dom.vmax()-dom.vmin());
-	      // 	}
+		}
+	      	// }
 	      // else
 	      // 	{
 	      // 	  umin = dom.umin();

@@ -123,6 +123,9 @@ public:
 
     virtual void normal(Point& n, double upar, double vpar) const;
 
+    virtual shared_ptr<ParamCurve>
+    constParamCurve(double parameter, bool pardir_is_u) const;
+
     virtual std::vector<shared_ptr<ParamCurve> >
     constParamCurves(double parameter, bool pardir_is_u) const;
 
@@ -240,7 +243,7 @@ public:
 
 
     // Confirm that this surface is axis rotational
-    virtual bool isAxisRotational(Point& centre, Point& axis, Point& vec,
+    virtual int isAxisRotational(Point& centre, Point& axis, Point& vec,
 				  double& angle);
     
     /// Radius in a specified location, 
@@ -267,6 +270,11 @@ public:
     virtual void enlarge(double len1, double len2, double len3, double len4);
 
     virtual void translate(const Point& vec);
+
+    virtual int rotationalDir() const
+    {
+      return 3;
+    }
 
 protected:
 

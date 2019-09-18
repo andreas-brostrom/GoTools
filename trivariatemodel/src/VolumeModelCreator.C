@@ -57,7 +57,7 @@
 #include "GoTools/utils/MatrixXD.h"
 #include <fstream>
 
-//#define DEBUG
+#define DEBUG
 
 using std::vector;
 using namespace Go;
@@ -70,7 +70,21 @@ bool VolumeModelCreator::createRotationalModel(shared_ptr<SurfaceModel>& sfmodel
   // Check if the surface model represents a solid
   int nmb_bd = sfmodel->nmbBoundaries();
   if (nmb_bd > 0)
-    return false;  // Not a solid
+    {
+#ifdef DEBUG
+      std::ofstream of_bd("bd_cvs.g2");
+      vector<shared_ptr<ftEdge> > bd_edgs = 
+	sfmodel->getBoundaryEdges();
+      for (size_t kr=0; kr<bd_edgs.size(); ++kr)
+	{
+	  shared_ptr<ParamCurve> tmp_cv = bd_edgs[kr]->geomCurve();
+	  shared_ptr<ParamCurve> tmp_cv2(tmp_cv->geometryCurve());
+	  tmp_cv2->writeStandardHeader(of_bd);
+	  tmp_cv2->write(of_bd);
+	}
+#endif
+      return false;  // Not a solid
+    }
 
   // Create solid
   shared_ptr<Body> body(new Body(sfmodel));
@@ -190,7 +204,9 @@ bool VolumeModelCreator::createRotationalModel(shared_ptr<SurfaceModel>& sfmodel
   // Regularize face
   RegularizeFace reg(face, eps, neighbour, bend, true);
   Point centre2;  // Dummy
-  reg.setAxis(centre2, axis);
+  //reg.setAxis(centre2, axis);
+  reg.setAxis(centre, axis);
+  reg.setRotationalMode(1);  // Preferred split orthogonal to axis
   vector<shared_ptr<ftSurface> > reg_faces = reg.getRegularFaces();
   if (reg_faces.size() == 0)
     return false;
@@ -237,6 +253,7 @@ bool VolumeModelCreator::createRotationalModel(shared_ptr<SurfaceModel>& sfmodel
   int nmb_sfs = model3->nmbEntities();
   SweepVolumeCreator createvol;
   vector<shared_ptr<ftVolume> > volumes;
+  tpTolerances tptol = sfmodel->getTolerances();
   for (int ki=0; ki<nmb_sfs; ++ki)
     {
       shared_ptr<ParamSurface> surf = model3->getSurface(ki);
@@ -246,7 +263,8 @@ bool VolumeModelCreator::createRotationalModel(shared_ptr<SurfaceModel>& sfmodel
 
       shared_ptr<ParamVolume> vol =
 	shared_ptr<ParamVolume>(createvol.rotationalSweptVolume(*sf, angle, mid, axis));
-      shared_ptr<ftVolume> vol2(new ftVolume(vol, -1));
+      shared_ptr<ftVolume> vol2(new ftVolume(vol, tptol.gap, tptol.neighbour,
+					     tptol.kink, tptol.bend));
       volumes.push_back(vol2);
     }
 #ifdef DEBUG

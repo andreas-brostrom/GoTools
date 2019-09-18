@@ -128,6 +128,9 @@ public:
     virtual std::vector<shared_ptr<ParamCurve> >
     constParamCurves(double parameter, bool pardir_is_u) const;
 
+    virtual shared_ptr<ParamCurve>
+    constParamCurve(double parameter, bool pardir_is_u) const;
+
     shared_ptr<ParamCurve>
     constParamCurve(double parameter, bool pardir_is_u,
 		    double from, double to) const;
@@ -250,8 +253,8 @@ public:
     shared_ptr<Circle> getCircle(double par) const;
 
     /// Confirm that this surface is axis rotational
-    virtual bool isAxisRotational(Point& centre, Point& axis, Point& vec,
-                                  double& angle);
+    virtual int isAxisRotational(Point& centre, Point& axis, Point& vec,
+				 double& angle);
 
     /// The surface is linear in one direction. Fetch it
     virtual bool isLinear(Point& dir1, Point& dir2, double tol);
@@ -287,6 +290,11 @@ public:
     virtual bool atSeam(int dir, double parval) const;
 
     virtual bool fullPeriod(int dir, double parval1, double parval2) const;
+
+    virtual int rotationalDir() const
+    {
+      return (isSwapped()) ? 2 : 1;
+    }
 
 protected:
 

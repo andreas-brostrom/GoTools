@@ -41,6 +41,7 @@
 #include "GoTools/compositemodel/CompositeCurve.h"
 #include "GoTools/compositemodel/ftPointSet.h"
 #include "GoTools/compositemodel/AdaptSurface.h"
+#include "GoTools/compositemodel/EdgeVertex.h"
 #include "GoTools/intersections/Identity.h"
 #include "GoTools/geometry/BoundedSurface.h"
 #include "GoTools/geometry/BoundedUtils.h"
@@ -67,7 +68,7 @@
 
 #include <fstream>
 
-//#define DEBUG
+#define DEBUG
 
 using std::vector;
 using std::set;
@@ -2497,3 +2498,142 @@ SurfaceModelUtils::reduceUnderlyingSurface(shared_ptr<BoundedSurface>& bd_sf,
 	}
     }
 }	  
+
+//==========================================================================
+void SurfaceModelUtils::limitUnderlyingSurfaces(shared_ptr<SurfaceModel>& model)
+//==========================================================================
+{
+  double fac = 3.0;
+  int nmb = model->nmbEntities();
+  for (int ki=0; ki<nmb; ++ki)
+    {
+      shared_ptr<ParamSurface> surf = model->getSurface(ki);
+
+      shared_ptr<BoundedSurface> bd_surf = 
+	dynamic_pointer_cast<BoundedSurface,ParamSurface>(surf);
+      if (bd_surf.get())
+	{
+	  ElementarySurface *elem = 
+	    bd_surf->underlyingSurface()->elementarySurface();
+	  if (elem != NULL)
+	    {
+	      RectDomain dom = bd_surf->containingDomain();
+	      RectDomain dom2 = elem->containingDomain();
+	      double len1 = dom.diagLength();
+	      double len2 = dom2.diagLength();
+	      if (len2 > fac*len1)
+		{
+		  double umin, umax, vmin, vmax;
+		  umin = dom.umin()-0.5*(dom.umax()-dom.umin());
+		  umax = dom.umax()+0.5*(dom.umax()-dom.umin());
+		  vmin = dom.vmin()-0.5*(dom.vmax()-dom.vmin());
+		  vmax = dom.vmax()+0.5*(dom.vmax()-dom.vmin());
+		  umin = std::max(dom2.umin(), umin);
+		  umax = std::min(dom2.umax(), umax);
+		  vmin = std::max(dom2.vmin(), vmin);
+		  vmax = std::min(dom2.vmax(), vmax);
+		  elem->setParameterBounds(umin, vmin, umax, vmax);
+		}
+	    }
+	}
+    }
+}
+
+//==========================================================================
+int
+SurfaceModelUtils::getParameterDirection(ftSurface* face1, ftSurface* face2,
+					 shared_ptr<ftEdge> edge1,
+					 shared_ptr<ftEdge> edge2,
+					 double eps, int& pardir)
+//==========================================================================
+{
+  // Check for constant parameter curves
+  // Fetch information about trimming curves
+  int status = 0;
+  AdjacencyInfo info = face1->getAdjacencyInfo(face2, eps);
+
+  // Check for adjacent seam surfaces
+  ftSurface *f1=NULL, *f2=NULL;
+  bool at_seam = false;
+  f1 = edge1->twin()->geomEdge()->face()->asFtSurface();
+  f2 = edge2->twin()->geomEdge()->face()->asFtSurface();
+  if (f1 && f2 && f1->twin()==f2 && f2->twin()==f1)
+    at_seam = true;
+  else if (edge1->hasEdgeMultiplicity())
+    {
+      vector<ftSurface*> faces = 
+  	edge1->getEdgeMultiplicityInstance()->getAdjacentFaces();
+      Body *bd = face1->getBody();
+      for (size_t ki=0; ki<faces.size(); ++ki)
+  	for (size_t kj=ki+1; kj<faces.size(); ++kj)
+  	  if (faces[ki]->twin() == faces[kj] &&
+  	      faces[kj]->twin() == faces[ki] &&
+  	      faces[ki]->getBody() == bd &&
+  	      faces[kj]->getBody() == bd)
+  	    at_seam = true;
+    }
+
+  if (info.bd_idx_1_ >= 0 && info.bd_idx_2_ >= 0 &&
+      /* fabs(info.bd_idx_1_ - info.bd_idx_2_) == 1 && */
+      (info.bd_idx_1_/2) == (info.bd_idx_2_/2))
+    {
+      pardir = (info.bd_idx_1_ <= 1) ? 0 : 1;
+      status = 1;
+    }
+  else if (at_seam)
+    {
+      status = 2;
+
+      // Check parameter values of associated vertices
+      shared_ptr<Vertex> v1, v2, v3, v4;
+      edge1->getVertices(v1, v2);
+      edge2->getVertices(v3, v4);
+      Point p1 = v1->getFacePar(face1); 
+      Point p2 = v2->getFacePar(face1);
+      Point p3 = v3->getFacePar(face2);
+      Point p4 = v4->getFacePar(face2);
+      if (fabs(p1[0]-p2[0]) < eps && fabs(p3[0]-p4[0]) < eps)
+  	pardir = 1;
+      else if (fabs(p1[1]-p2[1]) < eps && fabs(p3[1]-p4[1]) < eps)
+  	pardir = 0;
+      else
+  	return 0;
+      
+    }
+  else
+    return 0;
+
+  return status;
+}
+
+//==========================================================================
+bool
+SurfaceModelUtils::c1AtEdge(ftEdge *edge1, ftEdge *edge2, double eps,
+			    double angtol)
+//==========================================================================
+{
+  // Check for approximate C1 continuity
+  int nsample = 15;
+  double t1 = edge1->tMin();
+  double t2 = edge1->tMax();
+  double tdel = (t2 - t1)/(double)(nsample-1);
+  double tpar, tpar2;
+  int kh;
+  double *seed = NULL;
+  for (kh=0, tpar=t1; kh<nsample; kh++, tpar+=tdel)
+    {
+      Point pos1 = edge1->point(tpar);
+      Point pos2;
+      double dist;
+      edge2->closestPoint(pos1, tpar2, pos2, dist, seed);
+      if  (dist > eps)
+	break;
+      Point norm1 = edge1->normal(tpar);
+      Point norm2 = edge2->normal(tpar2);
+      if (norm1.angle(norm2) > angtol)
+	break;
+      seed = &tpar2;
+    }
+  return (kh >= nsample);
+}
+    

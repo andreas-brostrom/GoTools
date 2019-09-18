@@ -436,6 +436,19 @@ void Torus::normal(Point& n, double upar, double vpar) const
 
 
 //===========================================================================
+shared_ptr<ParamCurve> 
+Torus::constParamCurve(double parameter, bool pardir_is_u) const
+//===========================================================================
+{
+    bool torus_pardir_is_u = (isSwapped()) ? !pardir_is_u : pardir_is_u;
+
+    // Major circle has v as constant parameter, i.e. the circle is parametrized in the u dir.
+    shared_ptr<Circle> circle = (torus_pardir_is_u) ? getMajorCircle(parameter) : getMinorCircle(parameter);
+    return circle;
+}
+
+
+//===========================================================================
 vector<shared_ptr<ParamCurve> >
 Torus::constParamCurves(double parameter, bool pardir_is_u) const
 //===========================================================================
@@ -968,6 +981,31 @@ shared_ptr<Circle> Torus::getMinorCircle(double upar) const
 
 
 //===========================================================================
+int Torus::isAxisRotational(Point& centre, Point& axis, Point& vec,
+			       double& angle)
+//===========================================================================
+{
+  // Rotational around main axis
+  centre = location_;
+  axis = z_axis_;
+  if (parbound_.umin() == 0.0)
+    vec = x_axis_;
+  else
+    {
+      Point pt;
+      point(pt, parbound_.umin(), parbound_.vmin());
+      vec = pt - location_;
+      if (vec.length() < 1.0e-8)
+	{
+	  point(pt, parbound_.umin(), 0.5*(parbound_.vmin()+parbound_.vmax()));
+	  vec = pt - location_;
+	}
+      vec.normalize();
+    }
+  angle = parbound_.umax() - parbound_.umin();
+
+  return 1;  
+}
 
 //===========================================================================
   void Torus::enlarge(double len1, double len2, double len3, double len4)

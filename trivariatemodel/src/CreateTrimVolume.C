@@ -49,6 +49,7 @@
 #include "GoTools/compositemodel/ftPoint.h"
 #include "GoTools/compositemodel/ftCurve.h"
 #include "GoTools/compositemodel/ftLine.h"
+#include "GoTools/compositemodel/SurfaceModelUtils.h"
 #include "GoTools/geometry/ParamSurface.h"
 #include "GoTools/geometry/BoundedSurface.h"
 #include "GoTools/geometry/BoundedUtils.h"
@@ -62,7 +63,7 @@
 #include <fstream>
 #include <cstdlib>
 
-//#define DEBUG
+#define DEBUG
 
 using std::vector;
 using std::set;
@@ -93,7 +94,7 @@ CreateTrimVolume::fetchRotationalTrimVol(bool create_degen, bool refine_sharp)
 {
   shared_ptr<ftVolume> result;
 
-  limitUnderlyingSurfaces();
+  SurfaceModelUtils::limitUnderlyingSurfaces(model_);
 
   // Simplify input shell and mend gaps due to bad trimming curves
   int degree = 3;
@@ -118,6 +119,22 @@ CreateTrimVolume::fetchRotationalTrimVol(bool create_degen, bool refine_sharp)
   double angle;
   bool found_axis = identifyRotationalAxis(centre, axis, vec, angle,
 					   rotational_faces, other_faces);
+#ifdef DEBUG
+  std::ofstream ofrot("rot_faces2.g2");
+  for (size_t ki=0; ki<rotational_faces.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> sf = rotational_faces[ki]->surface();
+      sf->writeStandardHeader(ofrot);
+      sf->write(ofrot);
+    }
+  std::ofstream ofoth("other_faces.g2");
+  for (size_t ki=0; ki<other_faces.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> sf = other_faces[ki]->surface();
+      sf->writeStandardHeader(ofoth);
+      sf->write(ofoth);
+    }
+#endif
   if ((!found_axis) || rotational_faces.size() < 2)
     return result;   // Not a rotational model
 
@@ -308,7 +325,7 @@ shared_ptr<ftVolume> CreateTrimVolume::fetchOneTrimVol(bool refine_sharp)
 {
   shared_ptr<ftVolume> ftvol;  // Initially not generated
 
-  limitUnderlyingSurfaces();
+  SurfaceModelUtils::limitUnderlyingSurfaces(model_);
 
   // Simplify input shell and mend gaps due to bad trimming curves
   int degree = 3;
@@ -562,10 +579,10 @@ CreateTrimVolume::computeGroupInfo(double tol)
       
       Point centre, axis, vec, norm;
       double ang;
-      bool rotational = under_sf_[ki]->isAxisRotational(centre, axis, 
+      int rotational = under_sf_[ki]->isAxisRotational(centre, axis, 
 							vec, ang);
       bool planar = under_sf_[ki]->isPlanar(norm, tol);
-      if (rotational)
+      if (rotational == 1)
 	{
 	  sf_type_[ki] = ROTATIONAL;
 	  sf_axis_[ki] = axis;
@@ -1003,7 +1020,7 @@ CreateTrimVolume::findSideSfs(double tol, double angtol,
 #endif
       Point centre, axis, vec, normal;
       double angle;
-      bool rot = under_sf_[prio[idx2]]->isAxisRotational(centre, axis, vec, angle);
+      int rot = under_sf_[prio[idx2]]->isAxisRotational(centre, axis, vec, angle);
       bool planar = under_sf_[prio[idx2]]->isPlanar(normal, tol);
       Point cone_centre = cone_[prio[idx2]].centre();
 
@@ -1037,7 +1054,7 @@ CreateTrimVolume::findSideSfs(double tol, double angtol,
 #endif
 	  Point centre2, axis2, vec2, normal2;
 	  double angle2;
-	  bool rot2 = under_sf_[prio[kh]]->isAxisRotational(centre2, axis2, 
+	  int rot2 = under_sf_[prio[kh]]->isAxisRotational(centre2, axis2, 
 							    vec2, angle2);
 	  bool planar2 = under_sf_[prio[kh]]->isPlanar(normal2, tol);
 	  Point cone_centre2 = cone_[prio[kh]].centre();
@@ -1045,7 +1062,7 @@ CreateTrimVolume::findSideSfs(double tol, double angtol,
 	  double ang = dir[idx].angle(cone_centre2);
 	  double scpr = dir[idx]*cone_centre2;
 	  double axis_ang = bd_vec[idx].angle(cone_centre2);
-	  if (rot2)
+	  if (rot2 == 1)
 	    axis_ang = bd_vec[idx].angle(axis2);
 	  else if (planar2)
 	    axis_ang = bd_vec[idx].angle(normal2);
@@ -1396,10 +1413,10 @@ CreateTrimVolume::oneSideSf(int bd_type, vector<int>& face_grp_ix,
 		  shared_ptr<ParamSurface> surf = under_sf_[face_grp_ix[ki]];
 		  Point centre, axis, other_vec;
 		  double angle;
-		  bool rot = surf->isAxisRotational(centre, axis, other_vec, angle);
+		  int rot = surf->isAxisRotational(centre, axis, other_vec, angle);
 		  if (!rot)
 		    ext_fac = 1.2;
-		  else 
+		  else if (rot == 1)
 		    {
 		      double ang = bd_vec.angle(axis);
 		      if (ang > angtol && ang < M_PI-angtol)
@@ -2843,7 +2860,7 @@ CreateTrimVolume::identifyRotationalAxis(Point& centre, Point& axis,
       Point curr_centre, curr_axis, curr_vec;
       double ang;
       double rad = -1;
-      bool rotational = surf->isAxisRotational(curr_centre, curr_axis,
+      int rotational = surf->isAxisRotational(curr_centre, curr_axis,
 					       curr_vec, ang);
       if (!rotational)
 	{
@@ -2862,7 +2879,7 @@ CreateTrimVolume::identifyRotationalAxis(Point& centre, Point& axis,
 	    }
 	}
 
-      if (rotational)
+      if (rotational == 1) 
 	{
 	  // Check if a new rotational axis is found
 	  curr_axis.normalize();
@@ -3152,11 +3169,11 @@ void
 			{
 			  Point pos, ax, dir;
 			  double ang, radius;
-			  bool rotational = 
+			  int rotational = 
 			    cv_loops[ki][kj]->isAxisRotational(pos, ax,
 							       dir, ang,
 							       radius);
-			  if (rotational)
+			  if (rotational == 1)
 			    {
 			      if (radius >= 0.0)
 				curr_rad1 = std::min(curr_rad1, radius);
@@ -3522,45 +3539,45 @@ void
 #endif
 }
 
-//==========================================================================
-void CreateTrimVolume::limitUnderlyingSurfaces()
-//==========================================================================
-{
-  double fac = 3.0;
-  int nmb = model_->nmbEntities();
-  for (int ki=0; ki<nmb; ++ki)
-    {
-      shared_ptr<ParamSurface> surf = model_->getSurface(ki);
+// //==========================================================================
+// void CreateTrimVolume::limitUnderlyingSurfaces()
+// //==========================================================================
+// {
+//   double fac = 3.0;
+//   int nmb = model_->nmbEntities();
+//   for (int ki=0; ki<nmb; ++ki)
+//     {
+//       shared_ptr<ParamSurface> surf = model_->getSurface(ki);
 
-      shared_ptr<BoundedSurface> bd_surf = 
-	dynamic_pointer_cast<BoundedSurface,ParamSurface>(surf);
-      if (bd_surf.get())
-	{
-	  ElementarySurface *elem = 
-	    bd_surf->underlyingSurface()->elementarySurface();
-	  if (elem != NULL)
-	    {
-	      RectDomain dom = bd_surf->containingDomain();
-	      RectDomain dom2 = elem->containingDomain();
-	      double len1 = dom.diagLength();
-	      double len2 = dom2.diagLength();
-	      if (len2 > fac*len1)
-		{
-		  double umin, umax, vmin, vmax;
-		  umin = dom.umin()-0.5*(dom.umax()-dom.umin());
-		  umax = dom.umax()+0.5*(dom.umax()-dom.umin());
-		  vmin = dom.vmin()-0.5*(dom.vmax()-dom.vmin());
-		  vmax = dom.vmax()+0.5*(dom.vmax()-dom.vmin());
-		  umin = std::max(dom2.umin(), umin);
-		  umax = std::min(dom2.umax(), umax);
-		  vmin = std::max(dom2.vmin(), vmin);
-		  vmax = std::min(dom2.vmax(), vmax);
-		  elem->setParameterBounds(umin, vmin, umax, vmax);
-		}
-	    }
-	}
-    }
-}
+//       shared_ptr<BoundedSurface> bd_surf = 
+// 	dynamic_pointer_cast<BoundedSurface,ParamSurface>(surf);
+//       if (bd_surf.get())
+// 	{
+// 	  ElementarySurface *elem = 
+// 	    bd_surf->underlyingSurface()->elementarySurface();
+// 	  if (elem != NULL)
+// 	    {
+// 	      RectDomain dom = bd_surf->containingDomain();
+// 	      RectDomain dom2 = elem->containingDomain();
+// 	      double len1 = dom.diagLength();
+// 	      double len2 = dom2.diagLength();
+// 	      if (len2 > fac*len1)
+// 		{
+// 		  double umin, umax, vmin, vmax;
+// 		  umin = dom.umin()-0.5*(dom.umax()-dom.umin());
+// 		  umax = dom.umax()+0.5*(dom.umax()-dom.umin());
+// 		  vmin = dom.vmin()-0.5*(dom.vmax()-dom.vmin());
+// 		  vmax = dom.vmax()+0.5*(dom.vmax()-dom.vmin());
+// 		  umin = std::max(dom2.umin(), umin);
+// 		  umax = std::min(dom2.umax(), umax);
+// 		  vmin = std::max(dom2.vmin(), vmin);
+// 		  vmax = std::min(dom2.vmax(), vmax);
+// 		  elem->setParameterBounds(umin, vmin, umax, vmax);
+// 		}
+// 	    }
+// 	}
+//     }
+// }
 
 //==========================================================================
 bool

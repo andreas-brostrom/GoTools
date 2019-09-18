@@ -158,18 +158,19 @@ namespace Go
 
   /// Append a new body to the volume model. The body is included in the topological
   /// structure
-  void append(shared_ptr<ftVolume> volume);
+  void append(shared_ptr<ftVolume> volume, bool set_boundary=true);
 
   /// Append a vector of bodies to the volume model. The bodies are included in the topological
   /// structure
-  void append(std::vector<shared_ptr<ftVolume> > volumes);
+  void append(std::vector<shared_ptr<ftVolume> > volumes, 
+	      bool set_boundary=true);
 
   /// Append all bodies from another volume model. The bodies are included in the topological
   /// structure
-  void append(shared_ptr<VolumeModel> anotherModel);
+  void append(shared_ptr<VolumeModel> anotherModel, bool set_boundary=true);
 
   /// Remove one volume from the model
-  void removeSolid(shared_ptr<ftVolume> vol);
+  void removeSolid(shared_ptr<ftVolume> vol, bool set_boundary=true);
 
   /// Tesselate model, interface heritage, not implemented
   virtual void tesselate(std::vector<shared_ptr<GeneralMesh> >& meshes) const;
@@ -201,6 +202,12 @@ namespace Go
 
   /** Compute boundary shells */
   void setBoundarySfs();
+  
+  void resetBoundarySfs()
+  {
+    boundary_shells_.clear();
+    setBoundarySfs();
+  }
 
   /** Fetch all faces at the outer boundary of this model */
   std::vector<shared_ptr<ftSurface> > getBoundaryFaces() const;
@@ -277,6 +284,7 @@ namespace Go
 
   /// We store all the boundary shells of the composite model
   /// First element is (what is supposed to be) the objects outer boundary.
+  bool boundary_computed_;
   std::vector<std::vector<shared_ptr<SurfaceModel> > > boundary_shells_;
 
   double approxtol_;

@@ -46,6 +46,7 @@
 #include "GoTools/geometry/SplineInterpolator.h"
 #include "GoTools/geometry/GeometryTools.h"
 #include "GoTools/geometry/ElementarySurface.h"
+#include "GoTools/geometry/ElementaryCurve.h"
 #include <algorithm>
 #include <iomanip>
 #include <fstream>
@@ -1139,7 +1140,9 @@ void SplineSurface::setParameterDomain(double u1, double u2,
   domain_ = RectDomain(ll, ur);
 
   if (elementary_surface_.get())
-    elementary_surface_->setParameterDomain(u1, u2, v1, v2);
+    {
+      elementary_surface_->setParameterDomain(u1, u2, v1, v2);
+    }
 } 
 
 //===========================================================================
@@ -1318,6 +1321,15 @@ SplineSurface::constParamCurve (double parameter,
     SplineCurve* sc = new SplineCurve (num, order,
 				       knotstart, coefs_wanted.begin(),
 				       dim_, rational_);
+
+    if (elementary_surface_.get())
+      {
+	shared_ptr<ParamCurve> elemcv = 
+	  elementary_surface_->constParamCurve(parameter, pardir_is_u);
+	shared_ptr<ElementaryCurve> elemcv2 = 
+	  dynamic_pointer_cast<ElementaryCurve,ParamCurve>(elemcv);
+	sc->setElementaryCurve(elemcv2);
+      }
     return sc;
 }
 
@@ -2131,14 +2143,14 @@ double SplineSurface::setAvBdWeight(double wgt, int pardir, bool at_start)
 }
 
 //===========================================================================
-bool SplineSurface::isAxisRotational(Point& centre, Point& axis, Point& vec,
+int SplineSurface::isAxisRotational(Point& centre, Point& axis, Point& vec,
 				     double& angle)
 //===========================================================================
 {
   if (elementary_surface_.get())
     return elementary_surface_->isAxisRotational(centre, axis, vec, angle);
   else
-    return false;
+    return 0;
 }
 
 //===========================================================================

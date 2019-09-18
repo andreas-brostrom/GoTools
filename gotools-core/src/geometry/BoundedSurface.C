@@ -3540,7 +3540,7 @@ bool BoundedSurface::isLinear(Point& dir1, Point& dir2, double tol)
 }
 
 //===========================================================================
-bool BoundedSurface::isAxisRotational(Point& centre, Point& axis, Point& vec,
+int BoundedSurface::isAxisRotational(Point& centre, Point& axis, Point& vec,
 				     double& angle)
 //===========================================================================
 {
@@ -3552,17 +3552,18 @@ bool BoundedSurface::isAxisRotational(Point& centre, Point& axis, Point& vec,
   Point normal;
   bool planar = surface_->isPlanar(normal, eps);
   if ((!rotational) && (!planar))
-    return false;
+    return 0;
 
   // Check trimming curves
   double curve_ang = -1.0;
+  int tot_rot = 1;  // Assumes rotational until otherwise proven
   if (rotational)
     {
       // All trimming curves must either have the same centre and axis
       // as the underlying surface or lie in a plane going through the
       // axis. At most two such planes are allowed
       if (boundary_loops_.size() > 1)
-	return false;
+	tot_rot = 2;  // Inner trimming loops
 
       vector<Point> plane_norm(2);
 
@@ -3599,13 +3600,13 @@ bool BoundedSurface::isAxisRotational(Point& centre, Point& axis, Point& vec,
 			}
 		    }
 		  if (kp == 2)
-		    return false;  // More than two planes
+		    return 0;  // More than two planes
 		}
 	      else if (rot)
 		{
 		  double tmp_ang = axis.angle(axis2);
 		  if (tmp_ang > eps && fabs(M_PI-tmp_ang) > eps)
-		    return false;
+		    return 0;
 
 		  if (tmp_ang > eps)
 		    {
@@ -3637,17 +3638,17 @@ bool BoundedSurface::isAxisRotational(Point& centre, Point& axis, Point& vec,
 		  tmp_ang = axis.angle(tmp_vec);
 		  if (tmp_vec.length() > eps && tmp_ang > eps &&
 		      fabs(M_PI-tmp_ang) > eps)
-		    return false;
+		    return 0;
 		}
 	      else
-		return false;
+		return 0;
 	    }
 	  if (curr_vec.dimension() == vec.dimension())
 	    {
 	      if (curve_ang < 0)
 		curve_ang = curr_ang;
 	      else if (fabs(curve_ang - curr_ang) > eps)
-		return false;  // Rotational angle varies around the loop
+		return 0;  // Rotational angle varies around the loop
 
 	      if (curr_ang < angle+teps)
 		{
@@ -3669,38 +3670,58 @@ bool BoundedSurface::isAxisRotational(Point& centre, Point& axis, Point& vec,
 	  vector<vector<shared_ptr<ParamCurve> > > smooth_cvs;
 	  boundary_loops_[ki]->getSmoothCurves(smooth_cvs, eps);
 	  if (smooth_cvs.size() > 1)
-	    return false;  // Not rotational
+	    {
+	      if (ki == 0)
+		return 0;  // Not rotational
+	      else
+		tot_rot = 2;  // Inner trim
+	    }
 	  for (size_t kj=0; kj<smooth_cvs[0].size(); ++kj)
 	    {
 	      Point centre2, axis2, vec2;
 	      double angle2;
 	      bool rot = smooth_cvs[0][kj]->isAxisRotational(centre2, axis2, vec2, angle2);
 	      if (!rot)
-		return false;
+		{
+		  if (ki == 0)
+		    return 0;  // Not rotational
+		  else
+		    tot_rot = 2;  // Inner trim
+		}
 	      double tmp_ang = axis.angle(axis2);
 	      if (tmp_ang > eps && fabs(M_PI-tmp_ang) > eps)
-		return false;
+		{
+		  if (ki == 0)
+		    return 0;  // Not rotational
+		  else
+		    tot_rot = 2;  // Inner trim
+		}
 	      if (centre.dimension() == centre2.dimension())
 		{
 		  Point tmp_vec = centre2 - centre;
 		  tmp_ang = axis.angle(tmp_vec);
 		  if (tmp_vec.length() > eps && tmp_ang > eps && 
 		      fabs(M_PI-tmp_ang) > eps)
-		    return false;
+		    {
+		      if (ki == 0)
+			return 0;  // Not rotational
+		      else
+			tot_rot = 2;  // Inner trim
+		    }
 		}
 	      else
 		centre = centre2;
 	    }
 	}
       if (centre.dimension() == 0)
-	return false;
+	return 0;
 
       Point pt = (*boundary_loops_[0])[0]->point((*boundary_loops_[0])[0]->startparam());
       vec = pt - centre;
       vec.normalize();
       angle = 2.0*M_PI;
     }
-  return true;
+  return tot_rot;
 }
 
 //===========================================================================

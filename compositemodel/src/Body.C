@@ -250,6 +250,38 @@ bool Body::areNeighbours(Body *other, shared_ptr<ftSurface>& bd_face1,
 }
 
 //---------------------------------------------------------------------------
+void Body::getAdjacentBodies(vector<Body*>& neighbours)
+//---------------------------------------------------------------------------
+{
+  for (size_t ki=0; ki<shells_.size(); ++ki)
+    {
+      int nmb_faces = shells_[ki]->nmbEntities();
+      for (int kj=0; kj<nmb_faces; ++kj)
+	{
+	  shared_ptr<ftSurface> curr = shells_[ki]->getFace(kj);
+	  if (curr->twin())
+	    {
+	      ftSurface *other = curr->twin()->asFtSurface();
+	      if (other)
+		{
+		  Body *body = other->getBody();
+		  if (body)
+		    {
+		      // Check if the body is found already
+		      size_t kr;
+		      for (kr=0; kr<neighbours.size(); ++kr)
+			if (neighbours[kr] == body)
+			  break;
+		      if (kr == neighbours.size())
+			neighbours.push_back(body);
+		    }
+		}
+	    }
+	}
+    }
+}
+ 
+//---------------------------------------------------------------------------
 void Body::eraseBodyAdjacency()
 //---------------------------------------------------------------------------
 {

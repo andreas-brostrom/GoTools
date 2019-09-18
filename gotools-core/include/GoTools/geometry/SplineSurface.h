@@ -1363,8 +1363,8 @@ class GO_API SplineSurface : public ParamSurface
 
     /// Check if the surface is axis rotational. Only true if a connection
     /// to an axis rotational elementary surface exist
-    virtual bool isAxisRotational(Point& centre, Point& axis, Point& vec,
-				  double& angle);
+    virtual int isAxisRotational(Point& centre, Point& axis, Point& vec,
+				 double& angle);
 
     /// This surface is planar if it represents a plane or the
     /// spline surface is linear in both parameter direction and planar

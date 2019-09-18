@@ -59,7 +59,7 @@
 #include <fstream>
 #include <cstdlib>
 
-//#define DEBUG_REG
+#define DEBUG_REG
 
 using std::vector;
 using std::set;
@@ -75,7 +75,8 @@ RegularizeFace::RegularizeFace(shared_ptr<ftSurface> face,
 			       double tol2, bool split_in_cand)
 //==========================================================================
   : epsge_(epsge), angtol_(angtol), tol2_(tol2), bend_(5.0*angtol), face_(face),
-    split_in_cand_(split_in_cand), split_mode_(1), divideInT_(2), 
+    split_in_cand_(split_in_cand), split_mode_(1), rotational_mode_(0),
+    divideInT_(2), 
     top_level_(true), isolate_fac_(0.6), allow_half_holes_(true), 
     keep_vx_pri_(true), allow_degen_(false), max_rec_(-1), curr_rec_(0)
 {
@@ -93,7 +94,8 @@ RegularizeFace::RegularizeFace(shared_ptr<ftSurface> face,
 			       bool split_in_cand)
 //==========================================================================
   : epsge_(epsge), angtol_(angtol), tol2_(tol2), bend_(bend), face_(face),
-    split_in_cand_(split_in_cand), split_mode_(1), divideInT_(2), 
+    split_in_cand_(split_in_cand), split_mode_(1), rotational_mode_(0),
+    divideInT_(2), 
     top_level_(true), isolate_fac_(0.6), allow_half_holes_(true), 
     keep_vx_pri_(true), allow_degen_(false), max_rec_(-1), curr_rec_(0)
 {
@@ -109,6 +111,7 @@ RegularizeFace::RegularizeFace(shared_ptr<ftSurface> face,
 			       bool split_in_cand)
 //==========================================================================
   : face_(face), split_in_cand_(split_in_cand), split_mode_(1), 
+    rotational_mode_(0),
     divideInT_(1), top_level_(true), isolate_fac_(0.6), allow_half_holes_(true), 
     keep_vx_pri_(true), allow_degen_(false), max_rec_(-1), curr_rec_(0)
 {
@@ -2539,7 +2542,30 @@ RegularizeFace::faceOuterBdFaces(vector<vector<ftEdge*> >& half_holes)
 
    //  shared_ptr<Vertex> split_vx = getSignificantVertex(corners);
    // Prioritize corners according to opening angle
-   vector<shared_ptr<Vertex> > sorted_corners = prioritizeCornerVx(corners);
+   vector<shared_ptr<Vertex> > sorted_corners;
+   vector<shared_ptr<Vertex> > opposite_vx;
+   int nmb_sorted = 0;
+   if (rotational_mode_ == 1 && axis_.dimension() != 0)    
+     sorted_corners = prioritizeAxisVx(corners, nmb_sorted, opposite_vx);
+   
+   if (nmb_sorted < (int)corners.size())
+     {
+       if (nmb_sorted == 0)
+	 sorted_corners = prioritizeCornerVx(corners);
+       else
+	 {
+	   vector<shared_ptr<Vertex> > to_sort;
+	   to_sort.insert(to_sort.end(), sorted_corners.begin()+nmb_sorted,
+			  sorted_corners.end());
+	   sorted_corners.erase(sorted_corners.begin()+nmb_sorted,
+				sorted_corners.end());
+	   vector<shared_ptr<Vertex> > sorted_corners2 =
+	     prioritizeCornerVx(to_sort);
+	   sorted_corners.insert(sorted_corners.end(), 
+				 sorted_corners2.begin(),
+				 sorted_corners2.end());
+	 }
+     }
 
    // Include T-joint vertices in split candidates
 #ifdef DEBUG_REG
@@ -2549,7 +2575,8 @@ RegularizeFace::faceOuterBdFaces(vector<vector<ftEdge*> >& half_holes)
    for (ki=0; ki<Tvx.size(); ++ki)
      of02 << Tvx[ki]->getVertexPoint() << std::endl;
 #endif
-   sorted_corners.insert(sorted_corners.begin(), Tvx.begin(), Tvx.end());
+   if (nmb_sorted == 0)
+     sorted_corners.insert(sorted_corners.begin(), Tvx.begin(), Tvx.end());
 
    if (vx_pri_.size() > 0 && !(top_level_ == false && Tvx.size() > 0))
      {
@@ -2618,6 +2645,17 @@ RegularizeFace::faceOuterBdFaces(vector<vector<ftEdge*> >& half_holes)
        removeInsignificantVertices(non_corner);
 
        vector<shared_ptr<Vertex> > prio;
+       if (opposite_vx[ki].get())
+	 {
+	   prio.push_back(opposite_vx[ki]);
+	   for (size_t kr=0; kr<cand_vx.size(); ++kr)
+	     if (cand_vx[kr].get() == opposite_vx[ki].get())
+	       {
+		 cand_vx.erase(cand_vx.begin()+kr);
+		 break;
+	       }
+	 }
+
        for (size_t kr=0; kr<vx_pri_.size(); ++kr)
        	 {
 	   if (vx_pri_[kr].first.get() == split_vx.get())
@@ -3164,6 +3202,188 @@ RegularizeFace::getSignificantVertex(vector<shared_ptr<Vertex> > cand_vx)
 #endif
 
   return cand_vx2[max_idx];
+}
+
+//==========================================================================
+vector<shared_ptr<Vertex> >
+RegularizeFace::prioritizeAxisVx(vector<shared_ptr<Vertex> >& cand_vx,
+				 int& nmb_sorted,
+				 vector<shared_ptr<Vertex> >& opposite_vx)
+//==========================================================================
+{
+  size_t nmb_cand = cand_vx.size();
+  nmb_sorted = 0;
+  opposite_vx.resize(nmb_cand);
+  vector<shared_ptr<Vertex> > sorted(nmb_cand);
+  if (nmb_cand <= 2)
+    return sorted;
+
+  // Define division vector
+  BoundingBox box = face_->boundingBox();
+  Point boxmid = 0.5*(box.low()+box.high());
+  double upar, vpar, dist;
+  Point facept;
+  face_->closestPoint(boxmid, upar, vpar, facept, dist, epsge_);
+  Point norm = face_->normal(upar, vpar);
+  Point vec = axis_%norm;
+  Point axis = axis_;
+
+  for (int kb=0; kb<2; ++kb, std::swap(vec,axis))
+    {
+      // Modify "mid" point to give a better distribution in groups
+      // for non-symmetric cases
+      vector<double> h1(nmb_cand);
+      vector<size_t> p1(nmb_cand);
+      for (size_t ki=0; ki<nmb_cand; ++ki)
+	{
+	  Point vxpos = cand_vx[ki]->getVertexPoint();
+	  h1[ki] = vxpos*axis;
+	  p1[ki] = ki;
+	}
+
+      for (size_t ki=0; ki<p1.size(); ++ki)
+	for (size_t kj=ki+1; kj<p1.size(); ++kj)
+	  {
+	    if (h1[p1[kj]] < h1[p1[ki]])
+	      std::swap(p1[ki], p1[kj]);
+	  }
+      Point midpt = 0.25*(cand_vx[p1[0]]->getVertexPoint() +
+			 cand_vx[p1[1]]->getVertexPoint() +
+			 cand_vx[p1[nmb_cand-2]]->getVertexPoint() + 
+			 cand_vx[p1[nmb_cand-1]]->getVertexPoint());
+  
+      // Split candidate vertices in groups according to orientation with
+      // respect to division vector. Compute hight with respect to axis
+      vector<vector<shared_ptr<Vertex> > > vxs(2);
+      vector<vector<double> > high(2);
+      for (size_t ki=0; ki<nmb_cand; ++ki)
+	{
+	  Point vxpos = cand_vx[ki]->getVertexPoint();
+	  double sgnval = (vxpos - midpt)*vec;
+	  if (sgnval < 0.0)
+	    {
+	      vxs[0].push_back(cand_vx[ki]);
+	      high[0].push_back(vxpos*axis);
+	    }
+	  else
+	    {
+	      vxs[1].push_back(cand_vx[ki]);
+	      high[1].push_back(vxpos*axis);
+	    }
+	}
+
+      // Sort with respect for hight
+      vector<vector<size_t> > perm(2);
+      for (int ka=0; ka<2; ++ka)
+	{
+	  perm[ka].resize(high[ka].size());
+	  for (size_t ki=0; ki<high[ka].size(); ++ki)
+	    perm[ka][ki] = ki;
+
+	  for (size_t ki=0; ki<high[ka].size(); ++ki)
+	    for (size_t kj=ki+1; kj<high[ka].size(); ++kj)
+	      {
+		if (high[ka][perm[ka][ki]] > high[ka][perm[ka][kj]])
+		  std::swap(perm[ka][ki], perm[ka][kj]);
+	      }
+	}
+
+      // Select split vertex side
+      int ix1 = (high[0].size() > high[1].size()) ? 0 : 1;
+      int ix2 = 1 - ix1;  // The other side
+      size_t nmbix1 = high[ix1].size();
+      size_t nmbix2 = high[ix2].size();
+
+      if (nmbix1 <= 2)
+	continue;  // No appropriate split vertices
+
+      double mid = 0.5*(high[ix1][perm[ix1][0]] + 
+			high[ix1][perm[ix1][nmbix1-1]]);
+      double lim = (high[ix2][perm[ix2][nmbix2-1]] -
+		    high[ix2][perm[ix2][0]])/(double)(nmbix1-1);
+      lim /= 2.0;
+
+      // Select best vertex
+      // First compute opening angle in vertex and select corresponding 
+      // vertex on the other side
+      vector<double> angle(nmbix1);
+      vector<shared_ptr<Vertex> > opposite(nmbix1);
+      angle[perm[ix1][0]] = angle[perm[ix1][nmbix1-1]] = 0.0;
+      for (size_t ki=1; ki<nmbix1-1; ++ki)
+	{
+	  shared_ptr<Vertex> curr_vx = vxs[ix1][perm[ix1][ki]];
+	  vector<ftEdge*> edgs = curr_vx->getFaceEdges(face_.get());
+	  if (edgs.size() != 2)
+	    continue;  // Unexpected
+	  Point tan1 = edgs[0]->tangent(edgs[0]->parAtVertex(curr_vx.get()));
+	  Point tan2 = edgs[1]->tangent(edgs[1]->parAtVertex(curr_vx.get()));
+	  double ang1 = tan1.angle(vec);
+	  ang1 = std::min(ang1, M_PI-ang1);
+	  double ang2 = tan2.angle(vec);
+	  ang2 = std::min(ang2, M_PI-ang2);
+	  angle[perm[ix1][ki]] = std::min(ang1,ang2);
+
+	  if (nmbix1 == nmbix2)
+	    opposite[perm[ix1][ki]] = vxs[ix2][perm[ix2][ki]];
+	  else
+	    {
+	      // Find closest opposite vertex
+	      double mindist = lim;
+	      int minix = -1;
+	      for (size_t kj=1; kj<nmbix2-1; ++kj)
+		{
+		  double dd = fabs(high[ix1][perm[ix1][ki]] -
+				   high[ix2][perm[ix2][kj]]);
+		  if (dd < mindist)
+		    {
+		      mindist = dd;
+		      minix = (int)kj;
+		    }
+		}
+	      if (minix > 0)
+		opposite[perm[ix1][ki]] = vxs[ix2][perm[ix2][minix]];
+	    }
+	}
+      // Sort appropriate vertices
+      double limang = 0.001*M_PI;
+      double a_tol = 1.0e-2;
+      vector<size_t> perm2(angle.size());
+      for (size_t ki=0; ki<angle.size(); ++ki)
+	perm2[ki] = perm[ix1][ki];
+      for (size_t ki=0; ki<angle.size(); ++ki)
+	for (size_t kj=ki+1; kj<angle.size(); ++kj)
+	  {
+	    if (fabs(angle[perm2[ki]]-angle[perm2[kj]]) < a_tol &&
+		fabs(high[ix1][perm2[ki]]-mid) > fabs(high[ix1][perm2[kj]]-mid))
+	      std::swap(perm2[ki], perm2[kj]);
+	    else if (angle[perm2[ki]] < angle[perm2[kj]])
+	      std::swap(perm2[ki], perm2[kj]);
+	  }
+
+      for (nmb_sorted=0; 
+	   nmb_sorted<(int)nmbix1 && angle[perm2[nmb_sorted]] >= limang;
+	   ++nmb_sorted)
+	{
+	  sorted[nmb_sorted] = vxs[ix1][perm2[nmb_sorted]];
+	  opposite_vx[nmb_sorted] = opposite[perm2[nmb_sorted]];
+	}
+
+      // Insert the remaining vertices in random order
+      int ka = nmb_sorted;
+      for (size_t kj=0; kj<nmb_cand; ++kj)
+	{
+	  int kc;
+	  for (kc=0; kc<ka; ++kc)
+	    if (sorted[kc].get() == cand_vx[kj].get())
+	      break;
+	  if (kc == ka)
+	    sorted[ka++] = cand_vx[kj];
+	}
+      
+      if (nmb_sorted > 0)
+	break;
+    }
+  return sorted;
 }
 
 //==========================================================================
@@ -10239,6 +10459,7 @@ RegularizeFace::applyNextLevel(vector<shared_ptr<ftSurface> >& new_faces)
       regularize.setDivideInT(divideInT_);
       regularize.setCandSplit(cand_split_);
       regularize.setSplitMode(split_mode_);
+      regularize.setRotationalMode(rotational_mode_);
       regularize.unsetTopLevel();
       if (cand_split_.size() >  0)
 	regularize.setCandSplit(cand_split_);

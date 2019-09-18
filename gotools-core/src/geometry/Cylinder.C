@@ -488,6 +488,47 @@ Cylinder::constParamCurves(double parameter, bool pardir_is_u) const
 
 
 //===========================================================================
+shared_ptr<ParamCurve> 
+Cylinder::constParamCurve(double parameter, bool pardir_is_u) const
+//===========================================================================
+{
+    bool real_pardir_is_u = (isSwapped()) ? !pardir_is_u : pardir_is_u;
+    if (real_pardir_is_u)
+    {
+        shared_ptr<ParamCurve> circle = getCircle(parameter);
+        return circle;
+    }
+    else
+    {
+        if (!isBounded())
+        {
+            // Since the point() function will swap the input if parameter directions is swapped, we must do the same.
+            Point par_zero(parameter, 0.0);
+            getOrientedParameters(par_zero[0], par_zero[1]);
+            Point pt_zero = ParamSurface::point(par_zero[0], par_zero[1]);
+            // The z_axis_ is the direction of the line.
+            shared_ptr<Line> line(new Line(pt_zero, z_axis_));
+            return line;
+        }
+        else
+        {
+            double vmin = domain_.vmin();
+            Point par_from(parameter, vmin);
+            getOrientedParameters(par_from[0], par_from[1]);
+            Point cv_min = ParamSurface::point(par_from[0], par_from[1]);
+            double vmax = domain_.vmax();
+            Point par_to(parameter, vmax);
+            getOrientedParameters(par_to[0], par_to[1]);
+            Point cv_max = ParamSurface::point(par_to[0], par_to[1]);
+            shared_ptr<Line> line(new Line(cv_min, cv_max, vmin, vmax));
+            return line;
+        }
+    }
+    
+}
+
+
+//===========================================================================
 shared_ptr<ParamCurve>
 Cylinder::constParamCurve(double iso_par, bool pardir_is_u,
 			  double from, double to) const
@@ -1240,8 +1281,8 @@ bool Cylinder::isClosed(bool& closed_dir_u, bool& closed_dir_v) const
 }
 
 //===========================================================================
-bool Cylinder::isAxisRotational(Point& centre, Point& axis, Point& vec,
-				double& angle)
+int Cylinder::isAxisRotational(Point& centre, Point& axis, Point& vec,
+			       double& angle)
 //===========================================================================
 {
   centre = location_;
@@ -1257,7 +1298,7 @@ bool Cylinder::isAxisRotational(Point& centre, Point& axis, Point& vec,
     }
   angle = parbound_.umax() - parbound_.umin();
 
-  return true;
+  return 1;
 }
 
 //===========================================================================

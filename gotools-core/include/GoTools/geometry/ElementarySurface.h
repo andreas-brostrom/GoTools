@@ -198,6 +198,14 @@ public:
       return false;  // Default, overruled at child
     }
 
+    virtual int rotationalDir() const
+    {
+      return 0;  // Default non-rotational, overruled at child
+    }
+
+    virtual shared_ptr<ParamCurve>
+    constParamCurve(double parameter, bool pardir_is_u) const = 0;
+
 protected:
     double ptol_;  // Tolerance used in decisions on parameter range
     // when no nother tolerance information is available

@@ -489,8 +489,42 @@ Cone::constParamCurves(double parameter, bool pardir_is_u) const
 
 //===========================================================================
 shared_ptr<ParamCurve>
+Cone::constParamCurve(double parameter, bool pardir_is_u) const
+//===========================================================================
+{
+  bool cone_pardir_is_u = (isSwapped()) ? !pardir_is_u : pardir_is_u;
+  if (cone_pardir_is_u)
+    {
+      shared_ptr<ParamCurve> circle = getCircle(parameter);
+      return circle;
+    }
+  else
+    {
+      if (!isBounded())
+        {
+	  shared_ptr<Line> line = getLine(parameter);
+	  return line;
+        }
+      else
+        {
+	  double vmin = domain_.vmin();
+	  Point par_from(parameter, vmin);
+	  getOrientedParameters(par_from[0], par_from[1]);
+	  Point cv_min = ParamSurface::point(par_from[0], par_from[1]);
+	  double vmax = domain_.vmax();
+	  Point par_to(parameter, vmax);
+	  getOrientedParameters(par_to[0], par_to[1]);
+	  Point cv_max = ParamSurface::point(par_to[0], par_to[1]);
+	  shared_ptr<Line> line(new Line(cv_min, cv_max, vmin, vmax));
+	  return line;
+        }
+    }
+}
+
+//===========================================================================
+shared_ptr<ParamCurve>
 Cone::constParamCurve(double iso_par, bool pardir_is_u,
-			  double from, double to) const
+		      double from, double to) const
 //===========================================================================
 {
     vector<shared_ptr<ParamCurve> > res;
@@ -1459,7 +1493,7 @@ Cone::getElementaryParamCurve(ElementaryCurve* space_crv, double tol,
 
 
 //===========================================================================
-bool Cone::isAxisRotational(Point& centre, Point& axis, Point& vec,
+int Cone::isAxisRotational(Point& centre, Point& axis, Point& vec,
 				double& angle)
 //===========================================================================
 {
@@ -1477,7 +1511,7 @@ bool Cone::isAxisRotational(Point& centre, Point& axis, Point& vec,
     }
   angle = domain_.umax() - domain_.umin();
 
-  return true;
+  return 1;
 }
 
 //===========================================================================

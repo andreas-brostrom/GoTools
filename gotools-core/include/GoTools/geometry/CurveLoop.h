@@ -225,6 +225,14 @@ public:
     void closestParPoint(const Point& pt, int& clo_ind, double& clo_par, 
 			 Point& clo_pt, double& clo_dist) const;
 
+    /// Intersect curveloop with curve
+    /// intpar1 contains curve index and intersection parameter for the loop
+    /// intpar2 contains corresponding intersection parameter for the curve
+    /// Sorted with respect to intpar2
+    void intersect(shared_ptr<ParamCurve> cv, double eps,
+		   std::vector<std::pair<int,double> >& intpar1,
+		   std::vector<double>& intpar2);
+
     /// Return the curves in the loop as a vector 
     std::vector<shared_ptr<ParamCurve> > getCurves()
     { return curves_; }

@@ -634,6 +634,14 @@ public:
     void replaceSurf(shared_ptr<ParamSurface> sf)
 	{ surf_ = sf;}
 
+    /// Remove specified inner trimming loop. 
+    /// NB! Very dangerous. Use with case
+    void removeLoop(int ix)
+    {
+      if (ix > 0 && ix<(int)boundary_loops_.size())
+	boundary_loops_.erase(boundary_loops_.begin()+ix);
+    }
+
 private:
     /// Geometric description of the surface associated to this face
     shared_ptr<ParamSurface> surf_;

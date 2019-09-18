@@ -37,8 +37,8 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-//#define DEBUG_VOL1
-//#define DEBUG
+#define DEBUG_VOL1
+#define DEBUG
 
 #include "GoTools/trivariatemodel/ftVolume.h"
 #include "GoTools/trivariatemodel/ftVolumeTools.h"
@@ -7199,8 +7199,15 @@ ftVolume::generateMissingBdSurf(int degree,
     {
       // No potential for generating inner boundary surfaces.
       // Try to merge boundary surfaces of the outer shell 
-      simplifyOuterBdShell(degree);
-      return faces;  // Return the empty face vector
+      bool simplified = simplifyOuterBdShell(degree);
+      if (simplified)
+	return faces;  // Return the empty face vector
+
+      // Make a new try to find missing surface loops with less restrictions
+       sf_loops = getMissingSfLoops(corr_vx_pts, perform_step2,
+				    smooth_connections, max_nmb, false);
+       if (sf_loops.size() == 0)
+	 return faces;  // No options
     }
 
 #ifdef DEBUG_VOL1
@@ -8559,7 +8566,7 @@ bool  ftVolume::doSwapEdges(ftSurface* face, ftEdge* edge1, ftEdge *edge2)
 vector<vector<ftEdge*> > 
 ftVolume::getMissingSfLoops(vector<pair<Point,Point> >& corr_vx_pts,
 			    bool perform_step2, bool smooth_connections,
-			    int max_nmb)
+			    int max_nmb, bool test_planarity)
 //===========================================================================
 {
   vector<vector<ftEdge*> > missing_sf_loops;
@@ -8681,7 +8688,8 @@ ftVolume::getMissingSfLoops(vector<pair<Point,Point> >& corr_vx_pts,
     }
 #endif
 
-  vector<vector<ftEdge*> >  loops = getLoop(start_edges[ki], max_nmb);
+  vector<vector<ftEdge*> >  loops = getLoop(start_edges[ki], max_nmb, 
+					    test_planarity);
 
 #ifdef DEBUG_VOL1
 	  std::ofstream of4("curr_loops0.g2");
@@ -9006,7 +9014,7 @@ vector<shared_ptr<ftEdge> > ftVolume::getStartEdges()
 // 
 // 
 vector<vector<ftEdge*> > ftVolume::getLoop(shared_ptr<ftEdge> start_edge,
-					   int max_nmb)
+					   int max_nmb, bool test_planarity)
 //===========================================================================
 {
   vector<vector<ftEdge*> > all_loops;
@@ -9078,7 +9086,8 @@ vector<vector<ftEdge*> > ftVolume::getLoop(shared_ptr<ftEdge> start_edge,
       edge_loop.push_back(start_edge.get());
       edge_loop.push_back(edges[ki]);
 
-      bool found = getLoopEdges(edge_loop, start_vx, vx, max_nmb);
+      bool found = getLoopEdges(edge_loop, start_vx, vx, max_nmb, 
+				test_planarity);
 
       if (found)
 	all_loops.push_back(edge_loop);
@@ -9092,7 +9101,7 @@ vector<vector<ftEdge*> > ftVolume::getLoop(shared_ptr<ftEdge> start_edge,
 bool ftVolume::getLoopEdges(vector<ftEdge*>& loop,
 			    shared_ptr<Vertex> start_vx,
 			    shared_ptr<Vertex> vx,
-			    int max_nmb)
+			    int max_nmb, bool test_planarity)
 //===========================================================================
 {
   int added_max = 0;
@@ -9241,7 +9250,7 @@ bool ftVolume::getLoopEdges(vector<ftEdge*>& loop,
 	      // Check if the plane(s) defined by the edge loop are significantly
 	      // different from the tangent planes of the assiciated faces
 	      // To check if the loop should be prosessed further
-	      bool plane_found = checkPlaneLoop(loop);
+	      bool plane_found = (test_planarity) ? checkPlaneLoop(loop) : false;
 
 	      if (!plane_found)
 		{
@@ -9343,7 +9352,8 @@ bool ftVolume::getLoopEdges(vector<ftEdge*>& loop,
       else
 	{
 	  // Find next edge in loop
-	  bool found = getLoopEdges(loop, start_vx, vx2, max_nmb);
+	  bool found = getLoopEdges(loop, start_vx, vx2, max_nmb, 
+				    test_planarity);
 	  if (found)
 	    {
 	      // A loop is found. Check if a better alternative exists
@@ -9353,7 +9363,8 @@ bool ftVolume::getLoopEdges(vector<ftEdge*>& loop,
 		  loop2.pop_back();
 		  loop2[loop2.size()-1] = edges[ki2];
 
-		  bool found2 = getLoopEdges(loop2, start_vx, vx2, max_nmb);
+		  bool found2 = getLoopEdges(loop2, start_vx, vx2, max_nmb,
+					     test_planarity);
 
 		  if (found2)
 		    {
@@ -11696,11 +11707,13 @@ shared_ptr<BoundedSurface> ftVolume::replaceBdCvs(shared_ptr<BoundedSurface> sur
 // }
 
 //===========================================================================
-void ftVolume::simplifyOuterBdShell(int degree)
+bool ftVolume::simplifyOuterBdShell(int degree)
 //===========================================================================
 {
   shared_ptr<SurfaceModel> model = shells_[0];  // Consider only outer shell
+  int nmb = model->nmbEntities();
   SurfaceModelUtils::simplifySurfaceModel(model, degree);
+  return (model->nmbEntities() < nmb);
 }
 
 

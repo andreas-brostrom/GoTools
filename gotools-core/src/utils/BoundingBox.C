@@ -272,6 +272,30 @@ vector<Point> BoundingBox::lineIntersect(const Point& p1, const Point& dir) cons
 }
 
 //===========================================================================
+double BoundingBox::dist(const Point& pt) const
+//===========================================================================
+{
+  int dim = dimension();
+  if (dim != pt.dimension())
+    THROW("Dimension mismatch");
+  if (containsPoint(pt))
+    return 0.0;
+  else
+    {
+      // Project point onto box
+      Point pt2 = low_;
+      for (int ki=0; ki<dim; ++ki)
+	{
+	  if (pt[ki] >= low_[ki] && pt[ki] <= high_[ki])
+	    pt2[ki] = pt[ki];
+	  else if (pt[ki] > high_[ki])
+	    pt2[ki] = high_[ki];
+	}
+      return pt.dist(pt2);
+    }
+}
+
+//===========================================================================
 void BoundingBox::check() const
 //===========================================================================
 {

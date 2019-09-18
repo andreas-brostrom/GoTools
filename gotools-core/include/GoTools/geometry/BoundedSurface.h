@@ -680,6 +680,14 @@ public:
     /// Simplify boundary loops by reducing the number of curves if possible
     bool simplifyBdLoops(double tol, double ang_tol, double& max_dist);
 
+    /// Remove specified loop. Only inner loops
+    /// NB! Use with case
+    void removeBdLoop(int ix)
+    {
+      if (ix > 0 && ix < boundary_loops_.size())
+	boundary_loops_.erase(boundary_loops_.begin()+ix);
+    }
+
     /// Test if underlying surface is spline, if not try to convert it to spline
     /// /return wether underlying surface is spline afterwards
     bool makeUnderlyingSpline();
@@ -694,8 +702,8 @@ public:
 
     // This surface is axis rotational if the underlying surface is and
     // all the trimming curves are consistent with being rotational
-    virtual bool isAxisRotational(Point& centre, Point& axis, Point& vec,
-				  double& angle);
+    virtual int isAxisRotational(Point& centre, Point& axis, Point& vec,
+				 double& angle);
 
     /// This surface is planar if the underlying surface is
     virtual bool isPlanar(Point& normal, double tol);

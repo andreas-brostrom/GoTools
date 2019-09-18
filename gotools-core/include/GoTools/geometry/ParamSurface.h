@@ -499,10 +499,10 @@ public:
     /// to an axis rotational elementary surface exist
     /// The axis and rotational angle is only specified if the surface
     /// is actually rotational
-    virtual bool isAxisRotational(Point& centre, Point& axis, Point& vec,
-				  double& angle)
+    virtual int isAxisRotational(Point& centre, Point& axis, Point& vec,
+				 double& angle)
     {
-      return false;  // Default behaviour, overriden for spline surfaces,
+      return 0;  // Default behaviour, overriden for spline surfaces,
       // bounded surfaces and some elementary surfaces
     }
 

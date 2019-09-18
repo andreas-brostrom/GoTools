@@ -62,7 +62,7 @@ VolumeModel::VolumeModel(std::vector<shared_ptr<ftVolume> >& volumes,
 			 double kink)  // Kink between adjacent surfaces 
   //===========================================================================
   : CompositeModel(space_epsilon, 10.0*space_epsilon, kink, 10.0*kink),
-    approxtol_(space_epsilon)
+    boundary_computed_(false), approxtol_(space_epsilon)
 {
   if (volumes.size() == 0)
     return;
@@ -82,7 +82,7 @@ VolumeModel::VolumeModel(std::vector<shared_ptr<ftVolume> >& volumes,
 			 bool adjacency_set)
   //===========================================================================
   : CompositeModel(space_epsilon, neighbour, kink, bend),
-    approxtol_(space_epsilon)
+    boundary_computed_(false), approxtol_(space_epsilon)
 {
   if (volumes.size() == 0)
     return;
@@ -94,6 +94,7 @@ VolumeModel::VolumeModel(std::vector<shared_ptr<ftVolume> >& volumes,
   if (adjacency_set)
     {
       setBoundarySfs();
+      boundary_computed_ = true;
       setVertexIdentity();
     }
   else
@@ -106,7 +107,7 @@ VolumeModel::VolumeModel(double space_epsilon, double neighbour,
 			 double kink, double bend)  // Kink between adjacent surfaces 
   //===========================================================================
   : CompositeModel(space_epsilon, neighbour, kink, bend),
-    approxtol_(space_epsilon)
+    boundary_computed_(false), approxtol_(space_epsilon)
 {
 }
 
@@ -338,7 +339,7 @@ void VolumeModel::turn()
 }
 
 //===========================================================================
-void VolumeModel::append(shared_ptr<ftVolume> volume)
+void VolumeModel::append(shared_ptr<ftVolume> volume, bool set_boundary)
 //===========================================================================
 {
 // #ifdef DEBUG
@@ -351,7 +352,13 @@ void VolumeModel::append(shared_ptr<ftVolume> volume)
   buildTopology(volume);
 
   boundary_shells_.clear();
-  setBoundarySfs();
+  if (set_boundary)
+    {
+      setBoundarySfs();
+      boundary_computed_ = true;
+    }
+  else
+    boundary_computed_ = false;
 
 #ifdef DEBUG
   bool isOK = checkModelTopology();
@@ -362,24 +369,39 @@ void VolumeModel::append(shared_ptr<ftVolume> volume)
  }
 
 //===========================================================================
-void VolumeModel::append(vector<shared_ptr<ftVolume> > volumes)
+void VolumeModel::append(vector<shared_ptr<ftVolume> > volumes, 
+			 bool set_boundary)
 //===========================================================================
 {
   for (vector<shared_ptr<ftVolume> >::const_iterator it = volumes.begin();
        it != volumes.end();
        ++it)
-    append(*it);
+    {
+    //   append(*it);
+    // }
+      bodies_.push_back(*it);
+      buildTopology(*it);
+    }
+  boundary_shells_.clear();
+  if (set_boundary)
+    {
+      setBoundarySfs();
+      boundary_computed_ = true;
+    }
+  else
+    boundary_computed_ = false;
 }
 
 //===========================================================================
-void VolumeModel::append(shared_ptr<VolumeModel> anotherModel)
+void VolumeModel::append(shared_ptr<VolumeModel> anotherModel, 
+			 bool set_boundary)
   //===========================================================================
 {
-  append(anotherModel->bodies_);
+  append(anotherModel->bodies_, set_boundary);
 }
 
 //===========================================================================
-void VolumeModel::removeSolid(shared_ptr<ftVolume> vol)
+void VolumeModel::removeSolid(shared_ptr<ftVolume> vol, bool set_boundary)
   //===========================================================================
 {
 #ifdef DEBUG
@@ -410,7 +432,8 @@ void VolumeModel::removeSolid(shared_ptr<ftVolume> vol)
 
   // Regenerate model boundaries
   boundary_shells_.clear();
-  setBoundarySfs();
+  if (set_boundary)
+    setBoundarySfs();
   
 #ifdef DEBUG
   isOK = checkModelTopology();
@@ -459,6 +482,7 @@ void VolumeModel::buildTopology()
   computeTop.setAdjacency(solids);
 
   setBoundarySfs();
+  boundary_computed_ = true;
 
   // Add information about faces at the boundary meeting only in radial edges
   setVertexIdentity();
@@ -562,7 +586,7 @@ void VolumeModel::buildTopology(shared_ptr<ftVolume> body)
   }
 
 //===========================================================================
-void VolumeModel::setBoundarySfs()
+void VolumeModel::setBoundarySfs() 
 //===========================================================================
 {
   // Fetch all faces lying at outer boundaries, i.e. all faces with no twin
@@ -984,6 +1008,12 @@ void VolumeModel::averageCorrespondingCoefs()
 int VolumeModel::nmbBoundaries() const
 //===========================================================================
 {
+  // if (!boundary_computed_)
+  //   {
+  //     setBoundarySfs();
+  //     boundary_computed_ = true;
+  //   }
+
   int nmb = 0;
   for (size_t ki=0; ki<boundary_shells_.size(); ++ki)
       nmb += (int)boundary_shells_[ki].size();
@@ -994,6 +1024,12 @@ int VolumeModel::nmbBoundaries() const
 shared_ptr<SurfaceModel> VolumeModel::getOuterBoundary(int idx) const
 //===========================================================================
 {
+  // if (!boundary_computed_)
+  //   {
+  //     setBoundarySfs();
+  //     boundary_computed_ = true;
+  //   }
+
   size_t ki, kj;
   int idx2;
   for (ki=0, idx2=0; ki<boundary_shells_.size(); ++ki)

@@ -127,42 +127,28 @@ CurveOnSurface::CurveOnSurface(shared_ptr<ParamSurface> surf,
   spacecurve_ = curve;
   double t1 = startparam();
   double t2 = endparam();
-  Point pt1 = faceParameter(t1);
-  Point pt2 = faceParameter(t2);
-
-  // Check for orientation
-  Point pnt1 = curve->point(t1);
-  Point pnt2 = curve->point(t2);
-  Point pnt3 = surf->point(pt1[0], pt1[1]);
-  Point pnt4 = surf->point(pt2[0], pt2[1]);
-  double d1 = pnt1.dist(pnt3) + pnt2.dist(pnt4);
-  double d2 = pnt1.dist(pnt4) + pnt2.dist(pnt3);
-  double tol = 1.0e-6;  // Arbitrary tolerance
-  if (fabs(d1-d2) < tol)
+  Point pt1, pt2;
+  if (constdir_ > 0)
     {
-      // Cyclic case. Perform extra testing
-      double t3 = t1 + 0.1*(t2-t1);
-      double t4 = t1 + 0.9*(t2-t1);
-      Point pt3 = faceParameter(t3);
-      Point pt4 = faceParameter(t4);
-      Point pnt5 = curve->point(t3);
-      Point pnt6 = curve->point(t4);
-      Point pnt7 = surf->point(pt3[0], pt3[1]);
-      Point pnt8 = surf->point(pt4[0], pt4[1]);
-      if (pnt5.dist(pnt7) + pnt6.dist(pnt8) > 
-	  pnt5.dist(pnt8) + pnt6.dist(pnt7))
+      double param[2];
+      param[constdir_-1] = constval_;
+      param[2-constdir_] = t1;
+      pt1 = Point(param[0],param[1]);
+      param[2-constdir_] = t2;
+      pt2 = Point(param[0],param[1]);
+
+      vector<Point> der1(2), der2(3);
+      curve->point(der1, t1, 1);
+      surf->point(der2, pt1[0], pt1[1], 1);
+      double scpr = der1[1]*der2[3-constdir_];
+      if (scpr < 0.0)
 	{
 	  same_orientation_ = false;
 	  std::swap(pt1,pt2);
 	}
-    }
-  else if (d1 > d2)
-    {
-      same_orientation_ = false;
-      std::swap(pt1, pt2);
-    }
 
-  pcurve_ = shared_ptr<ParamCurve>(new SplineCurve(pt1, t1, pt2, t2));
+      pcurve_ = shared_ptr<ParamCurve>(new SplineCurve(pt1, t1, pt2, t2));
+    }
 }
 //===========================================================================
 CurveOnSurface::CurveOnSurface(shared_ptr<ParamSurface> surf,
@@ -2328,6 +2314,19 @@ Point CurveOnSurface::faceParameter(double crv_par,
     catch (...)
       {
 	surface_->closestPoint(pos, clo_u, clo_v, clo_pt, clo_dist, eps);
+      }
+    if (clo_dist > 10.0*eps && seed != NULL)
+      {
+	double clo_u2, clo_v2, clo_dist2;
+	Point clo_pt2;
+	surface_->closestPoint(pos, clo_u2, clo_v2, clo_pt2, clo_dist2, eps);
+	if (clo_dist2 < clo_dist)
+	  {
+	    clo_u = clo_u2;
+	    clo_v = clo_v2;
+	    clo_dist = clo_dist2;
+	    clo_pt = clo_pt2;
+	  }
       }
     if (std::isnan(clo_u)  || std::isnan(clo_v))
       {

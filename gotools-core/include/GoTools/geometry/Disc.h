@@ -147,6 +147,9 @@ namespace Go
     virtual std::vector<shared_ptr<ParamCurve> >
     constParamCurves(double parameter, bool pardir_is_u) const;
 
+    virtual shared_ptr<ParamCurve>
+    constParamCurve(double parameter, bool pardir_is_u) const;
+
     virtual std::vector<shared_ptr<ParamSurface> >
     subSurfaces(double from_upar, double from_vpar,
 		double to_upar, double to_vpar,

@@ -70,7 +70,7 @@
 #include "GoTools/topology/FaceConnectivityUtils.h"
 
 //#define DEBUG
-//#define DEBUG_REG
+#define DEBUG_REG
 
 using std::vector;
 using std::make_pair;
@@ -587,6 +587,8 @@ namespace Go
     std::cout << "Shell, append (before). Topology inconsistencies" << std::endl;
 #endif
 
+  Body *body = getBody();
+
     // Compute connectivity information related to the new face
     FaceAdjacency<ftEdgeBase,ftFaceBase> adjacency(toptol_);
     if (adjacency_set)
@@ -610,6 +612,9 @@ namespace Go
 					   orientation_inconsist.begin(),
 					   orientation_inconsist.end());
       }
+
+    if (body)
+      face->setBody(body);
 
     if (idx < 0)
       faces_.push_back(face);
@@ -707,11 +712,17 @@ namespace Go
     std::cout << "Shell, append (before). Topology inconsistencies" << std::endl;
 #endif
 
+  Body *body = getBody();
+
   int nmb_faces = (int)faces_.size();
-    for (size_t i = 0; i < faces.size(); ++i)
+  for (size_t i = 0; i < faces.size(); ++i)
+    {
+      if (body)
+	faces[i]->setBody(body);
       faces_.push_back(faces[i]);
-    initializeCelldiv();
-    if (adjacency_set)
+    }
+  initializeCelldiv();
+  if (adjacency_set)
       setTopology();
     else
       buildTopology(nmb_faces, set_twin);
@@ -4035,8 +4046,8 @@ SurfaceModel::mergeSeamFaces(ftSurface* face1, ftSurface* face2, int pardir,
     }
 
   // Make new underlying surface
-  shared_ptr<SplineSurface> base2 = 
-    dynamic_pointer_cast<SplineSurface,ParamSurface>(base);
+  shared_ptr<SplineSurface> base2(base->asSplineSurface());
+  //dynamic_pointer_cast<SplineSurface,ParamSurface>(base);
   if (!base2.get())
     return dummy;
   shared_ptr<SplineSurface> sub1 = 
@@ -4231,15 +4242,24 @@ SurfaceModel::mergeSeamFaces(ftSurface* face1, ftSurface* face2, int pardir,
   bool found = false;
   for (ki=0; ki<nmb1;)
     {
-      Point pos1 = bd_cvs[ki]->ParamCurve::point(bd_cvs[ki]->startparam());
-      Point pos2 = bd_cvs[ki]->ParamCurve::point(bd_cvs[ki]->endparam());
+      double t1 = bd_cvs[ki]->startparam();
+      double t2 = bd_cvs[ki]->endparam();
+      Point pos1 = bd_cvs[ki]->ParamCurve::point(t1);
+      Point pos2 = bd_cvs[ki]->ParamCurve::point(t2);
+      Point mid1 = bd_cvs[ki]->ParamCurve::point(0.5*(t1+t2));
       for (kj=nmb1; kj<nmb1+nmb2;)
 	{
 	  found = false;
-	  Point pos3 = bd_cvs[kj]->ParamCurve::point(bd_cvs[kj]->startparam());
-	  Point pos4 = bd_cvs[kj]->ParamCurve::point(bd_cvs[kj]->endparam());
-	  if ((pos1.dist(pos4) < toptol_.gap && pos2.dist(pos3) < toptol_.gap) ||
-	      (pos1.dist(pos3) < toptol_.gap && pos2.dist(pos4) < toptol_.gap))
+	  double t3 = bd_cvs[kj]->startparam();
+	  double t4 = bd_cvs[kj]->endparam();
+	  Point pos3 = bd_cvs[kj]->ParamCurve::point(t3);
+	  Point pos4 = bd_cvs[kj]->ParamCurve::point(t4);
+	  Point mid2;
+	  double mid_t, mid_d;
+	  bd_cvs[kj]->closestPoint(mid1, t3, t4, mid_t, mid2, mid_d);
+	  if (((pos1.dist(pos4) < toptol_.gap && pos2.dist(pos3) < toptol_.gap) ||
+	       (pos1.dist(pos3) < toptol_.gap && pos2.dist(pos4) < toptol_.gap)) &&
+	      mid_d < toptol_.neighbour)
 	    {
 	      // Maybe some more checking?
 	      bd_cvs.erase(bd_cvs.begin()+kj);
@@ -4383,7 +4403,7 @@ SurfaceModel::mergeSeamCrvFaces(ftSurface* face1, ftSurface* face2,
   shared_ptr<ParamSurface> base2 = bd_sf2->underlyingSurface();
   shared_ptr<BoundedSurface> bd_sf1_copy;
   shared_ptr<BoundedSurface> bd_sf2_copy;
-  // Make copies to rewind in case of now success
+  // Make copies to rewind in case of no success
   bd_sf1_copy = shared_ptr<BoundedSurface>(bd_sf1->clone());
   bd_sf2_copy = shared_ptr<BoundedSurface>(bd_sf2->clone());
 
@@ -4491,6 +4511,44 @@ SurfaceModel::mergeSeamCrvFaces(ftSurface* face1, ftSurface* face2,
 
   shared_ptr<ftSurface> merged_face = 
     performMergeFace(base, loops1, loops2, face1->getBody(), seam_joints, 0);
+  if (!merged_face.get())
+    {
+      // Try merge across seam. First check for existence of seam
+      int nmb_adjacency = face1->nmbAdjacencies(face2);
+      if (nmb_adjacency == 1)
+	{
+	  shared_ptr<ftEdge> edge1, edge2;
+	  bool neighbours = face1->areNeighbours(face2, edge1, edge2);
+	  if (neighbours)
+	    {
+	      double eps = getTolerances().gap;
+	      double eps2 = getTolerances().neighbour;
+	      double angtol = getTolerances().kink;
+	      int pardir;
+	      int at_seam = 
+		SurfaceModelUtils::getParameterDirection(face1, face2, 
+							 edge1, edge2, eps, 
+							 pardir);
+
+	      if (at_seam)
+		{
+		  // Check continuity
+		  bool c1cont = 
+		    SurfaceModelUtils::c1AtEdge(edge1.get(), edge2.get(),
+						eps2, angtol);
+		  if (c1cont)
+		    {
+		      // Try alternative merge
+		      merged_face = mergeSeamFaces(face1, face2, pardir,
+						   seam_joints);
+		      if (merged_face.get())
+			return merged_face;
+		    }
+		}
+	    }
+	}
+
+    }
   if (!merged_face.get())
     {
       bd_sf1 = bd_sf1_copy;

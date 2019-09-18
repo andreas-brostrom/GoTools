@@ -479,7 +479,7 @@ namespace Go
     std::vector<std::vector<ftEdge*> > 
       getMissingSfLoops(std::vector<std::pair<Point,Point> >& corr_vx_pts,
 			bool perform_step2, bool smooth_connections,
-			int max_nmb = 4);
+			int max_nmb = 4, bool test_planarity = true);
 
     bool loopExisting(std::vector<ftEdge*>& loop, 
 		      std::vector<std::vector<ftEdge*> >& curr_loops);
@@ -487,12 +487,13 @@ namespace Go
     std::vector<shared_ptr<ftEdge> > getStartEdges();
 
     std::vector<std::vector<ftEdge*> > getLoop(shared_ptr<ftEdge> start_edge,
-					       int max_nmb = 4);
+					       int max_nmb = 4, 
+					       bool test_planarity = true);
     
     bool getLoopEdges(std::vector<ftEdge*>& loop, 
 		      shared_ptr<Vertex> start_vx,
 		      shared_ptr<Vertex> vx,
-		      int max_nmb=4);
+		      int max_nmb=4, bool test_planarity = true);
 
     bool sameFace(std::vector<ftEdge*>& loop);
 
@@ -534,7 +535,7 @@ namespace Go
     shared_ptr<ParamCurve> makeMissingEdgeCv(shared_ptr<Vertex> vx1,
 					     shared_ptr<Vertex> vx2);
 
-    void simplifyOuterBdShell(int degree);
+    bool simplifyOuterBdShell(int degree);
 
     // Moved to SurfaceModelUtils
    /*  int mergeSituation(ftSurface* face1, ftSurface* face2, */

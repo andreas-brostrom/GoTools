@@ -129,6 +129,9 @@ public:
 
     virtual void normal(Point& n, double upar, double vpar) const;
 
+    virtual shared_ptr<ParamCurve>
+    constParamCurve(double parameter, bool pardir_is_u) const;
+
     virtual std::vector<shared_ptr<ParamCurve> >
     constParamCurves(double parameter, bool pardir_is_u) const;
 

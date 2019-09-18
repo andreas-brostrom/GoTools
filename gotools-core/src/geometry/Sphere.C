@@ -371,6 +371,17 @@ void Sphere::normal(Point& n, double upar, double vpar) const
 
 
 //===========================================================================
+shared_ptr<ParamCurve> 
+Sphere::constParamCurve(double parameter, bool pardir_is_u) const
+//===========================================================================
+{
+    bool real_pardir_is_u = (isSwapped()) ? !pardir_is_u : pardir_is_u;
+    shared_ptr<Circle> circle = (real_pardir_is_u) ?
+      getLatitudinalCircle(parameter) : getLongitudinalCircle(parameter);
+    return circle;
+}
+
+//===========================================================================
 vector<shared_ptr<ParamCurve> >
 Sphere::constParamCurves(double parameter, bool pardir_is_u) const
 //===========================================================================
@@ -1092,8 +1103,8 @@ shared_ptr<Circle> Sphere::getLongitudinalCircle(double upar) const
 
 
 //===========================================================================
-bool Sphere::isAxisRotational(Point& centre, Point& axis, Point& vec,
-				double& angle)
+int Sphere::isAxisRotational(Point& centre, Point& axis, Point& vec,
+			     double& angle)
 //===========================================================================
 {
   // @@@ VSK. This test is not general enough for a sphere. There are more 
@@ -1111,7 +1122,7 @@ bool Sphere::isAxisRotational(Point& centre, Point& axis, Point& vec,
     }
   angle = domain_.umax() - domain_.umin();
 
-  return true;
+  return 1;
 }
 
 //===========================================================================

@@ -141,6 +141,9 @@ public:
     /// \f$\partial p/ \partial u\times\partial p\partial v\f$.
     virtual void normal(Point& n, double upar, double vpar) const;
 
+    virtual shared_ptr<ParamCurve>
+    constParamCurve(double parameter, bool pardir_is_u) const;
+
     virtual std::vector<shared_ptr<ParamCurve> >
     constParamCurves(double parameter, bool pardir_is_u) const;
 
@@ -278,6 +281,10 @@ public:
     /// returned.
     shared_ptr<Circle> getMinorCircle(double upar) const;
 
+     /// Confirm that this surface is axis rotational
+    virtual int isAxisRotational(Point& centre, Point& axis, Point& vec,
+				 double& angle);
+
     virtual Point location() const
     {
       return location_;
@@ -296,6 +303,11 @@ public:
     virtual void enlarge(double len1, double len2, double len3, double len4);
 
     virtual void translate(const Point& vec);
+
+    virtual int rotationalDir() const
+    {
+      return 3;
+    }
 
 protected:
 

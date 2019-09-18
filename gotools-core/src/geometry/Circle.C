@@ -870,7 +870,7 @@ bool Circle::isAxisRotational(Point& centre, Point& axis, Point& vec,
 	pt = ParamCurve::point(startparam_);
       vec = pt - centre_;
       vec.normalize();
-      angle = endparam_ - startparam_;
+      angle = parbound2_ - parbound1_;
     }
   return true;
 }
