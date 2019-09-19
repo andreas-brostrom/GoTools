@@ -47,7 +47,7 @@
 #include "GoTools/geometry/BoundedUtils.h"
 #include <fstream>
 
-//#define DEBUG_VOL
+#define DEBUG_VOL
 
 using std::vector;
 

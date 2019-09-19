@@ -83,7 +83,7 @@ int main(int argc, char* argv[] )
   if (argc == 7)
     block_par = atoi(argv[6]);
 
-  double gap = 0.001; //0.001;
+  double gap = 0.0001; //0.001;
   double neighbour = 0.01; //0.01;
   double kink = 0.01;
   double approxtol = 0.001;

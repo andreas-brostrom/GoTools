@@ -1736,6 +1736,7 @@ HybridTrimVolume::insertTrimModel(shared_ptr<SurfaceModel>& trim_model,
 	{
 #ifdef DEBUG
 	  std::ofstream shout("block_mod.g2");
+	  std::ofstream ofbd0("bd_block.g2");
 	  int nmb = shell->nmbEntities();
 	  for (int ka=0; ka<nmb; ++ka)
 	    {
@@ -1743,6 +1744,12 @@ HybridTrimVolume::insertTrimModel(shared_ptr<SurfaceModel>& trim_model,
 		shell->getSurface(ka);
 	      tmp_sf->writeStandardHeader(shout);
 	      tmp_sf->write(shout);
+	      shared_ptr<ftSurface> tmp_face = shell->getFace(ka);
+	      if (!tmp_face->twin())
+		{
+		  tmp_sf->writeStandardHeader(ofbd0);
+		  tmp_sf->write(ofbd0);
+		}
 	    }
 #endif
 	  // // Create reduced surface model
@@ -1927,8 +1934,36 @@ HybridTrimVolume::insertTrimModel(shared_ptr<SurfaceModel>& trim_model,
 	      rotsf->writeStandardHeader(oftrimall);
 	      rotsf->write(oftrimall);
 	    }
+	}
+    }
+
+  std::ofstream ofbd("bd_faces.g2");
+  vector<shared_ptr<ftSurface> > bd_faces2 = 
+    rotational_vol_->getBoundaryFaces();
+  for (size_t ki=0; ki<bd_faces2.size(); ++ki)
+    {
+      shared_ptr<ParamSurface> rotsf = bd_faces2[ki]->surface();
+      rotsf->writeStandardHeader(ofbd);
+      rotsf->write(ofbd);
+    }
+
+  std::ofstream ofbd2("bd_blocks2.g2");
+  for (size_t ki=0; ki<trim_volumes.size(); ++ki)
+    {
+      shared_ptr<SurfaceModel> sfmod2 = trim_volumes[ki]->getShell(0);
+      int nmb_face2 = sfmod2->nmbEntities();
+      for (int kc=0; kc<nmb_face2; ++kc)
+	    {
+	      shared_ptr<ftSurface> rotf = sfmod2->getFace(kc);
+	      if (!rotf->twin())
+		{
+		  shared_ptr<ParamSurface> rotsf = sfmod2->getSurface(kc);
+		  rotsf->writeStandardHeader(ofbd2);
+		  rotsf->write(ofbd2);
+		}
 	    }
-	    }
+	}
+      
 #endif
   int stop_finish = 1;
 }

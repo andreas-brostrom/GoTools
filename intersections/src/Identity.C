@@ -93,7 +93,7 @@ namespace Go
 		if (pt1.dist(pt3) < pt1.dist(pt4))
 		    coincident = checkCoincide(cv1, start1, end1, eps,
 					       cv2, start2, end2);
-		else
+		if ((!coincident) && pt1.dist(pt4) < tol)
 		    coincident = checkCoincide(cv1, start1, end1, eps,
 					       cv2, end2, start2);
 		if (coincident)
