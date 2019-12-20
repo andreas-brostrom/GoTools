@@ -50,6 +50,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <string.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -58,7 +59,7 @@
 //#define DEBUG
 //#define DEBUG1
 //#define DEBUG2
-//#define DEBUG_HIST
+#define DEBUG_HIST
 
 using std::vector;
 using std::cout;
@@ -981,6 +982,11 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
       double acc_err_sgn = 0.0;
       double av_err_sgn = 0.0;
 
+      double acc_err_pos = 0.0;
+      double acc_err_neg = 0.0;
+      int nmb_err_pos = 0;
+      int nmb_err_neg = 0;
+
       // Check if the accuracy can have been changed
       const vector<LRBSpline2D*>& bsplines = it->second->getSupport();
       size_t nb;
@@ -1081,6 +1087,7 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
 	      maxheight = std::max(maxheight, height);
 
 	      // Accumulate approximation error
+	      double dist = curr[ix];
 	      double dist2 = fabs(curr[ix]);
 	      maxdist_ = std::max(maxdist_, dist2);
 	      max_err = std::max(max_err, dist2);
@@ -1125,6 +1132,16 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
 		{
 		  maxdist_sign_ = std::max(maxdist_sign_, dist2);
 		  avdist_sign_ += dist2;
+		}
+	      if (dist > tol)
+		{
+		  acc_err_pos += (dist-tol);
+		  nmb_err_pos++;
+		}
+	      else if (dist < -tol)
+		{
+		  acc_err_neg += ((-dist) - tol);
+		  nmb_err_neg++;
 		}
 	      if (dist2 > tol)
 		{
@@ -1271,6 +1288,8 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
 	      av_err = 0.0;
 	      outside = 0;
 	      outside_sign = 0;
+	      acc_err_pos = acc_err_neg = 0.0;
+	      nmb_err_pos = nmb_err_neg = 0;
 	      minheight = std::numeric_limits<double>::max();
 	      maxheight = std::numeric_limits<double>::lowest();
 	      for (ki=0, curr=(nmb_pts>0) ? &points[0] : &sign_points[0]; 
@@ -1286,6 +1305,7 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
 		      maxheight = std::max(maxheight, height);
 
 		      // Accumulate approximation error
+		      double dist = curr[ix];
 		      double dist2 = fabs(curr[ix]);
 		      max_err = std::max(max_err, dist2);
 		      acc_err += dist2;
@@ -1310,6 +1330,16 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
 			  tol = std::max(tol, (ki<nmb_pts) ? mintol_ :
 					 mintol_*(sign_aepsge_/aepsge_));
 			}
+		      if (dist > tol)
+			{
+			  acc_err_pos += (dist-tol);
+			  nmb_err_pos++;
+			}
+		      else if (dist < -tol)
+			{
+			  acc_err_neg += ((-dist) - tol);
+			  nmb_err_neg++;
+			}
 		      if (dist2 > tol)
 			{
 			  av_err += dist2;
@@ -1330,6 +1360,7 @@ void LRSurfApprox::computeAccuracy(vector<Element2D*>& ghost_elems)
       // Store updated accuracy information in the element
       it->second->setAccuracyInfo(acc_err, av_err, max_err, outside, 
 				  outside_sign, acc_outside);
+      it->second->setSignedAccInfo(acc_err_pos, nmb_err_pos, acc_err_neg, nmb_err_neg);
       it->second->setHeightInfo(minheight, maxheight);
 #ifdef DEBUG
       int write = 0;
@@ -1520,11 +1551,14 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
       size_t nb;
       int ki;
       double *curr;
-      double dist2, dist3;
+      double dist, dist2, dist3;
       Element2D *elem;
       double acc_prev;
       int del;
       double minheight, maxheight, height;
+      double acc_err_pos, acc_err_neg;
+      int nmb_err_pos, nmb_err_neg;
+
 
 #pragma omp for schedule(auto)//guided)//static,8)//runtime)//dynamic,4)
       for (kj = 0; kj < num_elem ; ++kj)
@@ -1564,6 +1598,10 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 	  acc_outside = 0.0;
 	  minheight = std::numeric_limits<double>::max();
 	  maxheight = std::numeric_limits<double>::lowest();
+	  acc_err_pos = 0.0;
+	  acc_err_neg = 0.0;
+	  nmb_err_pos = 0;
+	  nmb_err_neg = 0;
 
 	  // Check if the accuracy can have been changed
 	  const vector<LRBSpline2D*>& bsplines = it->second->getSupport();
@@ -1628,6 +1666,7 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 		  maxheight = std::max(maxheight, height);
 
 		  // Accumulate approximation error
+		  dist = curr[ix];
 		  dist2 = fabs(curr[ix]);
 		  maxdist_ = std::max(maxdist_, dist2);
 		  max_err = std::max(max_err, dist2);
@@ -1674,6 +1713,16 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 		      avdist_sign_ += dist2;
 		    }
 
+		  if (dist > tol)
+		    {
+		      acc_err_pos += (dist-tol);
+		      nmb_err_pos++;
+		    }
+		  else if (dist < -tol)
+		    {
+		      acc_err_neg += ((-dist) - tol);
+		      nmb_err_neg++;
+		    }
 		  if (dist2 > tol)
 		    {
 		      av_err_sgn += curr[ix];
@@ -1782,6 +1831,8 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 		  av_err = 0.0;
 		  outside = 0;
 		  outside_sign = 0;
+		  acc_err_pos = acc_err_neg = 0.0;
+		  nmb_err_pos = nmb_err_neg = 0;
 		  minheight = std::numeric_limits<double>::max();
 		  maxheight = std::numeric_limits<double>::lowest();
 		  for (ki=0, curr=(nmb_pts>0) ? &points[0] : &sign_points[0]; 
@@ -1797,7 +1848,8 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 			  maxheight = std::max(maxheight, height);
 
 			  // Accumulate approximation error
-			  double dist2 = fabs(curr[ix]);
+			  dist = curr[ix];
+			  dist2 = fabs(curr[ix]);
 			  max_err = std::max(max_err, dist2);
 			  acc_err += dist2;
 			  if (ki < nmb_pts)
@@ -1821,6 +1873,16 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 			      tol = std::max(tol, (ki<nmb_pts) ? mintol_ :
 					     mintol_*(sign_aepsge_/aepsge_));
 			    }
+			  if (dist > tol)
+			    {
+			      acc_err_pos += (dist-tol);
+			      nmb_err_pos++;
+			    }
+			  else if (dist < -tol)
+			    {
+			      acc_err_neg += ((-dist) - tol);
+			      nmb_err_neg++;
+			    }
 			  if (dist2 > tol)
 			    {
 			      av_err += dist2;
@@ -1837,6 +1899,7 @@ void LRSurfApprox::computeAccuracy_omp(vector<Element2D*>& ghost_elems)
 	  // Store updated accuracy information in the element
 	  it->second->setAccuracyInfo(acc_err, av_err, max_err, outside, 
 				      outside_sign, acc_outside);
+	  it->second->setSignedAccInfo(acc_err_pos, nmb_err_pos, acc_err_neg, nmb_err_neg);
 	  it->second->setHeightInfo(minheight, maxheight);
 
       }
@@ -2905,20 +2968,33 @@ int LRSurfApprox::refineSurf(int iter)
   std::cout << "' fraction: " << frac_out << std::endl;
 #endif
 
-  int choice = 1;  // Strategy for knot insertion in one single B-spline
-
-  // Construct indexed bspline array and collect related accuracy information
   int group_fac = 3;
   double error_fac = 0.1;
   double error_fac2 = 10.0;
   int num_bspl = srf_->numBasisFunctions();
+
+#ifdef DEBUG_HIST
+  char tmp[4];
+  sprintf(tmp, "%d", iter);
+  char filename[40];
+  strcpy(filename, "outfracsf.txt");
+  strncat(filename, tmp, 3);
+   std::ofstream ofout(filename);
+  ofout << "Number of B-splines: " << num_bspl << std::endl;
+   int choice = 1;  // Strategy for knot insertion in one single B-spline
+#endif
+  // Construct indexed bspline array and collect related accuracy information
   vector<LRBSpline2D*> bsplines(num_bspl);
   vector<double> error(num_bspl, 0.0);
   vector<double> max_error(num_bspl, 0.0);
   vector<double> av_error(num_bspl, 0.0);
+  vector<double> acc_err_pos(num_bspl, 0.0);
+  vector<double> acc_err_neg(num_bspl, 0.0);
   vector<int> num_pts(num_bspl, 0);
   vector<int> num_out_pts(num_bspl, 0); 
   vector<int> num_out_sign(num_bspl, 0); 
+  vector<int> nmb_out_pos(num_bspl, 0); 
+  vector<int> nmb_out_neg(num_bspl, 0); 
   vector<double> error2(num_bspl);
   double mean_err = 0.0;
   size_t kr = 0;
@@ -2926,6 +3002,8 @@ int LRSurfApprox::refineSurf(int iter)
   double average_nmb_out = 0.0;
   double average_nmb = 0.0;
   double basis_average_out = 0.0;
+  double frac_av_out = 0.0;
+  double frac_nmb_out = 0.0;
   for (LRSplineSurface::BSplineMap::const_iterator it=srf_->basisFunctionsBegin();
        it != srf_->basisFunctionsEnd(); ++it, ++kr)
     {
@@ -2945,6 +3023,15 @@ int LRSurfApprox::refineSurf(int iter)
 	  // points being outside of the tolerance
 	  if ((*it2)->getNmbOutsideTol() > 0)
 	    el_out2++;
+
+	  double curr_acc_pos, curr_acc_neg;
+	  int curr_nmb_pos, curr_nmb_neg;
+	  (*it2)->getSignedAccInfo(curr_acc_pos, curr_nmb_pos,
+				 curr_acc_neg, curr_nmb_neg);
+	  acc_err_pos[kr] += curr_acc_pos;
+	  acc_err_neg[kr] += curr_acc_neg;
+	  nmb_out_pos[kr] += curr_nmb_pos;
+	  nmb_out_neg[kr] += curr_nmb_neg;
 	}
       av_error[kr] /= (double)(curr->nmbSupportedElements());
       bsplines[kr] = curr;
@@ -2962,16 +3049,27 @@ int LRSurfApprox::refineSurf(int iter)
 	error2[kr] *= error_fac2;
       average_nmb_out += (double)(num_out_pts[kr]);
       average_nmb += (double)(num_pts[kr]);
+      if (nmb_out_pos[kr] > 0 || nmb_out_neg[kr] > 0)
+	{
+	  frac_av_out += std::min(acc_err_pos[kr], acc_err_neg[kr])/
+	    std::max(acc_err_pos[kr], acc_err_neg[kr]);
+	  frac_nmb_out += std::min((int)nmb_out_pos[kr], (int)nmb_out_neg[kr])/
+	    std::max((double)nmb_out_pos[kr], (double)nmb_out_neg[kr]);
+	}
     }
   mean_err /= (double)num_bspl;
   average_nmb_out /= (double)num_bspl;
   average_nmb /= (double)num_bspl;
   basis_average_out /= (double)num_bspl;
+  frac_av_out /= (double)num_bspl;
+  frac_nmb_out /= (double)num_bspl;
 #ifdef DEBUG_HIST
   std::cout << "Number of Bsplines: " << num_bspl << std::endl;
   std::cout << "Average number of points: " << average_nmb << std::endl;
   std::cout << "Average number of outside points: " << average_nmb_out << std::endl;
   std::cout << "Average fraction of outside elements in bspline: " << basis_average_out << std::endl;
+  std::cout << "Average distribution of outside distance (above - below): " << frac_av_out << std::endl;
+  std::cout << "Average distribution of number of outside points (above - below): " << frac_nmb_out << std::endl;
 #endif
   // Sort bsplines according to average error weighted with the domain size
   vector<int> bspl_perm(num_bspl);
@@ -3042,6 +3140,16 @@ int LRSurfApprox::refineSurf(int iter)
 
       nmb_refs++;  // Split this B-spline
       
+#ifdef DEBUG_HIST
+      double av_pos = (nmb_out_pos[bspl_perm[kr]] > 0) ?
+	acc_err_pos[bspl_perm[kr]]/(double)nmb_out_pos[bspl_perm[kr]] : 0.0;
+      double av_neg = (nmb_out_neg[bspl_perm[kr]] > 0) ?
+	acc_err_neg[bspl_perm[kr]]/(double)nmb_out_neg[bspl_perm[kr]] : 0.0;
+      ofout << acc_err_pos[bspl_perm[kr]] << " " << nmb_out_pos[bspl_perm[kr]] << " " << av_pos << " ";
+      ofout << acc_err_neg[bspl_perm[kr]] << " " << nmb_out_neg[bspl_perm[kr]] << " " << av_neg;
+      ofout << " " << num_pts[bspl_perm[kr]] << " " << num_out_pts[bspl_perm[kr]];
+      ofout << " " << max_error[bspl_perm[kr]] << std::endl;
+#endif       
       // How to split					
       defineRefs(bsplines[bspl_perm[kr]], average_threshold,
 		 refs_x, refs_y, iter, elem_out);
@@ -4126,6 +4234,7 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
   double u_par = 0.5*(elem->umin() + elem->umax());
   int ixu = -1;
   double max_wgt = 0.0;
+  double minsize_u = std::max(2.0*usize_min_, 1.0e-8);
   size_t ki, kj;
   for (ki=0; ki<nmb; ++ki)
     {
@@ -4134,9 +4243,15 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
       const vector<Element2D*>& curr_el = bsplines[ki]->supportedElements();
       for (kj=0; kj<curr_el.size(); ++kj)
 	{
-	  if (curr_el[kj]->umax() < u_par || curr_el[kj]->umin() > u_par)
+	  if (curr_el[kj]->umax() <= u_par || curr_el[kj]->umin() >= u_par)
 	    continue;  // Element not affected
 
+	  if (curr_el[kj]->umax() - curr_el[kj]->umin() < minsize_u)
+	    {
+	      // Element too small to be divided
+	      break;
+	    }
+	  
 	  // Compute weight for importance of refinement
 	  double max_err, av_err;
 	  int nmb_outside, nmb_out_sign;
@@ -4146,6 +4261,9 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
 	  double wgt = av_err*(int)nmb_outside/(int)nmb_pts;
 	  curr_wgt += wgt;
 	}
+      if (kj < curr_el.size())
+	continue;  // Current B-spline is not a candidate for a split
+      
       if (curr_wgt > max_wgt)
 	{
 	  max_wgt = curr_wgt;
@@ -4157,6 +4275,7 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
   double v_par = 0.5*(elem->vmin() + elem->vmax());
   int ixv = -1;
   max_wgt = 0.0;
+  double minsize_v = std::max(2.0*vsize_min_, 1.0e-8);
   for (ki=0; ki<nmb; ++ki)
     {
       // Count the number of elements with large error affected
@@ -4167,6 +4286,12 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
 	  if (curr_el[kj]->vmax() < v_par || curr_el[kj]->vmin() > v_par)
 	    continue;  // Element not affected
 
+	  if (curr_el[kj]->vmax() - curr_el[kj]->vmin() < minsize_v)
+	    {
+	      // Element too small to be divided
+	      break;
+	    }
+	  
 	  // Compute weight for importance of refinement
 	  double max_err, av_err;
 	  int nmb_outside, nmb_out_sign;
@@ -4176,6 +4301,9 @@ void LRSurfApprox::checkFeasibleRef(Element2D* elem, int iter,
 	  double wgt = av_err*(int)nmb_outside/(int)nmb_pts;
 	  curr_wgt += wgt;
 	}
+      if (kj < curr_el.size())
+	continue;  // Current B-spline is not a candidate for a split
+      
       if (curr_wgt > max_wgt)
 	{
 	  max_wgt = curr_wgt;

@@ -86,6 +86,7 @@ void print_help_text()
   std::cout << "-reltol <0/1>: Apply relative tolerance flag. Default false \n";
   std::cout << "-tolfac1: Factor for modification of tolerance, positive heights. Default 0.0 \n";
   std::cout << "-tolfac2: Factor for modification of tolerance, negative heights. Default 0.0 \n";
+  std::cout << "-minsize <length>: Minimum element size (both directions) \n";
   std::cout << "-signpoints: Filename significant points, same formats as point cloud \n";
   std::cout << "-signtol: Tolerance for significant points, default 0.5*tolerance \n";
   std::cout << "-signpost: Flag for post prossessing significant points outside tolerance (0=false, 1=true). Default false \n";
@@ -175,6 +176,7 @@ int main(int argc, char *argv[])
   char *signpointfile = 0;  // Input significant points
   double signtol = -1.0;  // Tolerance for significant points
   int signpost = 0;  // Flag for post procession of significant points
+  double minsize = -1.0;
 
   int ki, kj;
   vector<bool> par_read(argc-1, false);
@@ -268,7 +270,14 @@ int main(int argc, char *argv[])
 	  if (stat < 0)
 	    return 1;
 	}
-      else if (arg == "-signpoints")
+      else if (arg == "-minsize")
+	{
+	  int stat = fetchDoubleParameter(argc, argv, ki, minsize, 
+					  nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+       else if (arg == "-signpoints")
 	{
 	  int stat = fetchCharParameter(argc, argv, ki, signpointfile, 
 					nmb_par, par_read);
@@ -562,6 +571,9 @@ int main(int argc, char *argv[])
   if (reltol > 0)
     approx.setVarTol(tolfac1, tolfac2);
 
+  if (minsize > 0)
+    approx.setMinimumElementSize(minsize, minsize);
+  
   if (sign_data.size() > 0)
     {
       approx.addSignificantPoints(sign_data, signtol);

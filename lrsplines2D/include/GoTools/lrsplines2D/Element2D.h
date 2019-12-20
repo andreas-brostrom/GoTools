@@ -60,6 +60,8 @@ struct LSSmoothData
     max_error_ = max_error_prev_ = -1.0;
     nmb_outside_tol_ = -1;
     nmb_sign_outside_tol_ = -1;
+    acc_err_pos_ = acc_err_neg_ = 0.0;
+    nmb_err_pos_ = nmb_err_neg_ = 0;
     minheight_ = std::numeric_limits<double>::max();
     maxheight_ = std::numeric_limits<double>::lowest();
   }
@@ -256,6 +258,15 @@ struct LSSmoothData
     nmb_out_sign = nmb_sign_outside_tol_;
   }
 
+  void getSignedAccInfo(double& acc_err_pos, int& nmb_err_pos,
+			double& acc_err_neg, int& nmb_err_neg)
+  {
+    acc_err_pos = acc_err_pos_;
+    nmb_err_pos = nmb_err_pos_;
+    acc_err_neg = acc_err_neg_;
+    nmb_err_neg = nmb_err_neg_;
+  }
+  
   int getNmbOutsideTol()
   {
     return nmb_outside_tol_;
@@ -319,6 +330,15 @@ struct LSSmoothData
     accumulated_out_ = accumulated_out;
   }
 
+  void setSignedAccInfo(double acc_err_pos, int nmb_err_pos,
+			double acc_err_neg, int nmb_err_neg)
+  {
+    acc_err_pos_ = acc_err_pos;
+    nmb_err_pos_ = nmb_err_pos;
+    acc_err_neg_ = acc_err_neg;
+    nmb_err_neg_ = nmb_err_neg;
+  }
+  
   void resetAccuracyInfo()
   {
     accumulated_error_ = 0.0;
@@ -327,6 +347,8 @@ struct LSSmoothData
     nmb_outside_tol_ = -1;
     accumulated_out_ = 0.0;
     nmb_sign_outside_tol_ = -1;
+    acc_err_pos_ = acc_err_neg_= 0.0;
+    nmb_err_pos_ = nmb_err_neg_ = 0;
   }
 
   void setHeightInfo(double minheight, double maxheight)
@@ -443,6 +465,10 @@ struct LSSmoothData
   int nmb_outside_tol_;
   int nmb_sign_outside_tol_;
   double accumulated_out_;
+  double acc_err_pos_;
+  double acc_err_neg_;
+  int nmb_err_pos_;
+  int nmb_err_neg_;
   double minheight_;
   double maxheight_;
 };
@@ -745,6 +771,19 @@ public:
 	    }
 	}
 
+	void getSignedAccInfo(double& acc_err_pos, int& nmb_err_pos,
+			      double& acc_err_neg, int& nmb_err_neg)
+	{
+	  if (LSdata_.get())
+	    LSdata_->getSignedAccInfo(acc_err_pos, nmb_err_pos,
+					   acc_err_neg, nmb_err_neg);
+	  else
+	    {
+	      acc_err_pos = acc_err_neg = 0.0;
+	      nmb_err_pos = nmb_err_neg = 0;
+	    }
+	}
+  
 	int getNmbOutsideTol()
 	{
 	  if (LSdata_.get())
@@ -831,6 +870,15 @@ public:
 	}
 
 
+	void setSignedAccInfo(double acc_err_pos, int nmb_err_pos,
+			      double acc_err_neg, int nmb_err_neg)
+	{
+	  if (!LSdata_)
+	    LSdata_ = shared_ptr<LSSmoothData>(new LSSmoothData());
+	  LSdata_->setSignedAccInfo(acc_err_pos, nmb_err_pos,
+					 acc_err_neg, nmb_err_neg);
+	}
+  
 	void resetAccuracyInfo()
 	{
 	  if (LSdata_.get())

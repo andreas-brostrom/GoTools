@@ -69,7 +69,7 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
 
   int nc2 = ncell*ncell;
   vector<int> nmb_pts(3*nc2, 0);
-  vector<double> cellinfo(17*nc2, 0.0);
+  vector<double> cellinfo(18*nc2, 0.0);
   int *npt = &nmb_pts[0];
   int *nout_over = npt+nc2;
   int *nout_under = nout_over+nc2;
@@ -89,6 +89,7 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
   double *av_height_sf = av_under+nc2;
   double *min_height_sf = av_height_sf+nc2;
   double *max_height_sf = min_height_sf+nc2;
+  double *laplace = max_height_sf+nc2;
 
   // Adjust default
   for (int kr=0; kr<nc2; ++kr)
@@ -222,16 +223,18 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
       {
 	// Compute average slope in cell (9 points)
 	double slope2 = 0.0;
+	double laplace2 = 0.0;
 	int ka, kb;
 	double upar2, vpar2;
 	double udel2 = udel/3.0;
 	double vdel2 = vdel/3.0;
-	vector<Point> der(3);
+	vector<Point> der(6);
 	for (ka=0, upar2=upar+0.5*udel2; ka<3; ++ka, upar2+=udel2)
 	  for (kb=0, vpar2=vpar+0.5*vdel2; kb<3; ++kb, vpar2+=vdel2)
 	    {
-	      srf.point(der, upar2, vpar2, 1);
+	      srf.point(der, upar2, vpar2, 2);
 	      slope2 += sqrt(der[1][0]*der[1][0]+der[2][0]*der[2][0]);
+	      laplace2 += der[3][0]*der[3][0] + der[5][0]*der[5][0];
 	      min_height_sf[kj*ncell+ki] = std::min(min_height_sf[kj*ncell+ki],
 						    der[0][0]);
 	      max_height_sf[kj*ncell+ki] = std::max(max_height_sf[kj*ncell+ki],
@@ -239,14 +242,15 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
 	      av_height_sf[kj*ncell+ki] += der[0][0];
 	    }
 	slope[kj*ncell+ki] = slope2/9.0;
+	laplace[kj*ncell+ki] = laplace2/9.0;
 	av_height_sf[kj*ncell+ki] /= 9.0;
       }
 
   // Normalize to harmonize the different entries
   double minval = 0.0;
   double maxval = 10.0;
-  vector<vector<double> > outval(16);
-  for (int kh=0; kh<16; ++kh)
+  vector<vector<double> > outval(17);
+  for (int kh=0; kh<17; ++kh)
     outval[kh].resize(nc2);
   double currmin = std::numeric_limits<double>::max();
   double currmax = std::numeric_limits<double>::lowest();
@@ -441,12 +445,23 @@ void  LRFeatureUtils::writeCellInfo(const LRSplineSurface& srf,
   for (int kr=0; kr<nc2; ++kr)
     outval[15][kr] = outval[15][kr]*maxval/currmax;
 
- 
-  // Write to file
-  out << ncell << "  " << ncell << "  " << "16" << std::endl;
+  currmin = std::numeric_limits<double>::max();
+  currmax = std::numeric_limits<double>::lowest();
   for (int kr=0; kr<nc2; ++kr)
     {
-      for (int kh=0; kh<16; ++kh)
+      currmin = std::min(laplace[kr], currmin);
+      currmax = std::max(laplace[kr], currmax);
+      outval[16][kr] = laplace[kr];
+    }
+  for (int kr=0; kr<nc2; ++kr)
+    outval[16][kr] = outval[16][kr]*maxval/currmax;
+
+ 
+  // Write to file
+  out << ncell << "  " << ncell << "  " << "17" << std::endl;
+  for (int kr=0; kr<nc2; ++kr)
+    {
+      for (int kh=0; kh<17; ++kh)
 	out << outval[kh][kr] << " ";
       out << std::endl;
     }

@@ -230,21 +230,27 @@ namespace Go
     int ix1 = 0;
     int ix2 = (int)bspline_vec.size() - 1;
     int ix;
-
+    // TEST
     // Midpoint search
     
     int min1 = bspline_vec[ix1]->suppMin();
-    if (min1 > ix1)
+    //if (min1 > ix1)
+     if (min1 > knot_ix)
       return ix1;
     while (ix2 > ix1+1)
       {
-	ix = (ix1 + ix2)/2;
-	int min = bspline_vec[ix]->suppMin();
-	if (min <= knot_ix)
-	  ix1 = ix;
-	else
-	  ix2 = ix;
+    	ix = (ix1 + ix2)/2;
+    	int min = bspline_vec[ix]->suppMin();
+    	// if (min <= knot_ix)
+    	//   ix1 = ix;
+    	// else
+    	//   ix2 = ix;
+    	if (min > knot_ix)
+    	  ix2 = ix;
+    	else
+    	  ix1 = ix;
       }
+    // //return std::min((int)bspline_vec.size() - 1, ix2+1);
     return ix2;
   }
 
