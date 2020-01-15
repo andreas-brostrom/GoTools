@@ -1417,6 +1417,8 @@ bool LRSplineUtils::elementOK(const Element2D* elem, const Mesh2D& m)
 	      buni.push_back(unique_ptr<BSplineUniLR>(bsplit[kh]));
 	      last_ix = (int)buni.size() - 1;
 	    }
+	  else
+	    delete bsplit[kh];
 	}
       buni.push_back(std::move(bsplines[kj]));
     }
