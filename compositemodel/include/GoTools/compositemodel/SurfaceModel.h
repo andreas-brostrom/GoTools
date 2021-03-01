@@ -70,6 +70,7 @@ namespace Go
  class Loop;
  class Body;
  struct SamplePointData;
+ struct SamplePointData2;
 
 //===========================================================================
 /** A surface set or shell including topological information
@@ -650,6 +651,9 @@ class GO_API SurfaceModel : public CompositeModel
   /// information. The distribution is computed from the input parameter density
   void fetchSamplePoints(double density,
 			 std::vector<SamplePointData>& sample_points) const;
+
+  void fetchSamplePoints2(double density,
+			  std::vector<SamplePointData2>& sample_points) const;
 
   /// Set the elements in boundary_curves_ (based on top_table_).
   void setBoundaryCurves();
