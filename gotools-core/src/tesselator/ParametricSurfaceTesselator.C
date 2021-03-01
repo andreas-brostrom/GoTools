@@ -213,6 +213,7 @@ void ParametricSurfaceTesselator::tesselate()
         }
 
         vector<CurveLoop> bd_loops = bd_sf->absolutelyAllBoundaryLoops();
+	vector<double> cv_len(bd_loops.size(), 0.0);
         for (int crv = 0; crv < int(bd_loops.size()); crv++) {
             for (ki = 0; ki < bd_loops[crv].size(); ++ki) {
                 shared_ptr<CurveOnSurface> cv_on_sf(dynamic_pointer_cast<
@@ -222,6 +223,8 @@ void ParametricSurfaceTesselator::tesselate()
                 }
                 double eps = bd_loops[0].getSpaceEpsilon();
                 cv_on_sf->ensureParCrvExistence(eps);
+		double len = cv_on_sf->estimatedCurveLength();
+		cv_len[crv] += len;
                 shared_ptr<ParamCurve> pcv = cv_on_sf->parameterCurve();
 		if (pcv.get() == NULL) {
                     THROW("Missing parameter curve, needed for tesselation!");
@@ -239,6 +242,18 @@ void ParametricSurfaceTesselator::tesselate()
             }
         }
 
+	// Set number of sample parameters for the trimming loops
+	// First estimate Surface size
+	double u_size, v_size;
+	under_sf->estimateSfSize(u_size, v_size);
+	double frac = 0.5*((u_size/(double)n_) + (v_size/(double)m_));
+	vector<int> nloop(bd_loops.size());
+	int nm = (n_ + m_)/2;
+	for (ki=0; ki<bd_loops.size(); ++ki)
+	  {
+	    nloop[ki] = (int)(cv_len[ki]/frac);
+	  }
+
         // We then tesselate the object.
         vector<Vector3D> trimmed_vert; // 3D vertices.
         vector<Vector2D> trimmed_par; // Corresponding 2D vertices, includes the regular (m_+1)x(n_+1)-grid.
@@ -252,7 +267,7 @@ void ParametricSurfaceTesselator::tesselate()
         //vector< Vector3D > extra_v;
         double bd_res_ratio = 1.0;
         {
-            make_trimmed_mesh(under_sf, par_cv, trimmed_vert, trimmed_par,
+	  make_trimmed_mesh(under_sf, par_cv, nloop, trimmed_vert, trimmed_par,
                     trimmed_bd, trimmed_norm, trimmed_mesh, trim_curve,
                     trim_curve_p, n_, m_, bd_res_ratio);
         }

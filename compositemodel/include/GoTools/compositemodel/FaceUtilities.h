@@ -49,9 +49,62 @@ namespace Go
   /// \brief Sample data related to one face. 
   /// The struct contains one point in a point set with information 
   /// about position, associated surface normal and curvature.
-  /// Points lying on the face boundary know about its assoicated edge. If the
-  /// surface normal and curvature information regarding boundary points is not
-  /// unique, the assosiated data is set to be equal to MAX_DOUBLE
+  /// Points lying on the face boundary know about its assoicated edge. 
+  struct SamplePointData2
+  {
+    Point pos_;
+    Point norm_;
+    Point kvec1_;
+    Point kvec2_;
+    double k1_;
+    double k2_;
+    int type_; // 0=inner, 1=G2 boundary, 2=G1 boundary, 3=C0 boundary
+    ftSurface *face_;
+    double face_par_[2];
+    ftEdge *edge_;
+    double edge_par_;
+
+    /// Constructor for points at the face boundary
+    SamplePointData2(Point pos, Point norm, Point kvec1, double k1,
+		     Point kvec2, double k2, int type,
+		    ftSurface* face, double face_par_u, double face_par_v, 
+		    ftEdge *edge, double edge_par)
+    {
+      pos_ = pos;
+      norm_ = norm;
+      kvec1_ = kvec1;
+      kvec2_ = kvec2;
+      k1_ = k1;
+      k2_ = k2;
+      type_ = type;
+      face_ = face;
+      face_par_[0] = face_par_u;
+      face_par_[1] = face_par_v;
+      edge_ = edge;
+      edge_par_ = edge_par;
+    } 
+
+    /// Constructor for points in the inner of the face
+    SamplePointData2(Point pos, Point norm, Point kvec1, double k1,
+		     Point kvec2, double k2, int type,
+		    ftSurface* face, double face_par_u, double face_par_v)
+    {
+      pos_ = pos;
+      norm_ = norm;
+      kvec1_ = kvec1;
+      kvec2_ = kvec2;
+      k1_ = k1;
+      k2_ = k2;
+      type_ = type;
+      face_ = face;
+      face_par_[0] = face_par_u;
+      face_par_[1] = face_par_v;
+      edge_ = NULL;
+      edge_par_ = -1.0;
+    }
+
+  };
+
   struct SamplePointData
   {
     Point pos_;
@@ -97,6 +150,12 @@ namespace Go
   /// private functions in ftSurface
   namespace FaceUtilities
   {
+    void getBoundaryData2(ftSurface* face, int nmb_sample, 
+			  std::vector<SamplePointData2>& sample_points);
+
+    void getInnerData2(ftSurface* face, int nmb_sample_u, int nmb_sample_v, 
+		       std::vector<SamplePointData2>& sample_points);
+
     void getBoundaryData(ftSurface* face, int nmb_sample, 
 			 std::vector<SamplePointData>& sample_points);
 

@@ -352,15 +352,15 @@ void make_matrix(const SplineCurve& curve, int deg,
 	}
     }
 
-//     // Check Frobenius norm
-//     double norm = 0.0;
-//     for (int irow = 0; irow < numbas; ++irow) {
-//  	for (int icol = 0; icol < num; ++icol) {
-//  	    norm += mat[irow][icol] * mat[irow][icol];
-//  	}
-//     }
-//     norm = sqrt(norm);
-//     cout << "Frobenius norm = " << norm << endl;
+    // Check Frobenius norm
+    double norm = 0.0;
+    for (int irow = 0; irow < numbas; ++irow) {
+ 	for (int icol = 0; icol < num; ++icol) {
+ 	    norm += mat[irow][icol] * mat[irow][icol];
+ 	}
+    }
+    norm = sqrt(norm);
+    cout << "Frobenius norm = " << norm << endl;
 
     return;
 }
@@ -432,15 +432,15 @@ void make_matrix(const SplineSurface& surf, int deg,
 	}
     }
 
-//     // Check Frobenius norm
-//     double norm = 0.0;
-//     for (int irow = 0; irow < numbas; ++irow) {
-//  	for (int icol = 0; icol < num; ++icol) {
-//  	    norm += mat[irow][icol] * mat[irow][icol];
-//  	}
-//     }
-//     norm = sqrt(norm);
-//     cout << "Frobenius norm = " << norm << endl;
+    // Check Frobenius norm
+    double norm = 0.0;
+    for (int irow = 0; irow < numbas; ++irow) {
+ 	for (int icol = 0; icol < num; ++icol) {
+ 	    norm += mat[irow][icol] * mat[irow][icol];
+ 	}
+    }
+    norm = sqrt(norm);
+    cout << "Frobenius norm = " << norm << endl;
 
     return;
 }
@@ -534,25 +534,25 @@ void make_implicit_svd(vector<vector<double> >& mat,
 	return;
     }
 
-//     // Write out singular values.
-//     cout << "Singular values:" << endl;
-//     for (int ik = 0; ik < cols; ik++)
-//  	cout << ik << "\t" << diag.element(ik, ik) << endl;
+    // Write out singular values.
+    cout << "Singular values:" << endl;
+    for (int ik = 0; ik < cols; ik++)
+ 	cout << ik << "\t" << diag.element(ik, ik) << endl;
 
-//     // Write out info about singular values
-//     double s_min = diag.element(cols-1, cols-1);
-//     double s_max = diag.element(0, 0);
-//     cout << "Implicitization:" << endl
-// 	 << "s_min = " << s_min << endl
-// 	 << "s_max = " << s_max << endl
-// 	 << "Ratio of s_min/s_max = " << s_min/s_max << endl;
+    // Write out info about singular values
+    double s_min = diag.element(cols-1, cols-1);
+    double s_max = diag.element(0, 0);
+    cout << "Implicitization:" << endl
+	 << "s_min = " << s_min << endl
+	 << "s_max = " << s_max << endl
+	 << "Ratio of s_min/s_max = " << s_min/s_max << endl;
 
-//     // Find square sum of singular values
-//     double sum = 0.0;
-//     for (int i = 0; i < cols; i++)
-//  	sum += diag.element(i, i) * diag.element(i, i);
-//     sum = sqrt(sum);
-//     cout << "Square sum = " << sum << endl;
+    // Find square sum of singular values
+    double sum = 0.0;
+    for (int i = 0; i < cols; i++)
+ 	sum += diag.element(i, i) * diag.element(i, i);
+    sum = sqrt(sum);
+    cout << "Square sum = " << sum << endl;
 
     // Get the appropriate null-vector and corresponding singular value
     const double eps = 1.0e-15;
@@ -564,8 +564,8 @@ void make_implicit_svd(vector<vector<double> >& mat,
 	}
     }
     sigma_min = diag.element(nullvec, nullvec);
-//     cout << "Null-vector: " << nullvec << endl
-// 	 << "sigma_min = " << sigma_min << endl;
+    cout << "Null-vector: " << nullvec << endl
+	 << "sigma_min = " << sigma_min << endl;
 
     // Set the coefficients
     b.resize(cols);
@@ -671,20 +671,20 @@ void make_implicit_gauss(vector<vector<double> >& mat, vector<double>& b)
 	b[i] = dummy;
     }
 
-//     // Write info about b
-//     double norm = fabs(b[0]);
-//     double bmax = fabs(b[0]);
-//     double bmin = fabs(b[0]);
-//     for (int i = 1; i < cols; ++i) {
-// 	norm += fabs(b[i]);
-// 	if (fabs(b[i]) < bmin)
-// 	    bmin = fabs(b[i]);
-// 	if (fabs(b[i]) > bmax)
-// 	    bmax = fabs(b[i]);
-//     }
-//     norm /= cols;
-//     cout << "Max-norm of b = " << norm << endl
-// 	 << "bmin / bmax = " << bmin / bmax << endl;
+    // Write info about b
+    double norm = fabs(b[0]);
+    double bmax = fabs(b[0]);
+    double bmin = fabs(b[0]);
+    for (int i = 1; i < cols; ++i) {
+	norm += fabs(b[i]);
+	if (fabs(b[i]) < bmin)
+	    bmin = fabs(b[i]);
+	if (fabs(b[i]) > bmax)
+	    bmax = fabs(b[i]);
+    }
+    norm /= cols;
+    cout << "Max-norm of b = " << norm << endl
+	 << "bmin / bmax = " << bmin / bmax << endl;
 
     return;
 }

@@ -1754,6 +1754,7 @@ namespace Go
 
   void make_trimmed_mesh(shared_ptr<ParamSurface> srf,
 			 vector<shared_ptr<ParamCurve> >& crv_set,
+			 vector<int>& n_loop,
 			 vector< Vector3D > &vert,
 			 vector< Vector2D > &vert_p,
 			 vector< int > &bd,
@@ -1826,7 +1827,7 @@ namespace Go
       
 	corner_pars.push_back(st[kn]);
       
-	int n2 = 200/(int)(corner_pars.size() - 1); //200; //std::max(200, 4*n); @@sbr Should be const.
+	int n2 = n_loop[c]/(int)(corner_pars.size() - 1); //200; //std::max(200, 4*n); @@sbr Should be const.
 	n2 = std::max(n2, 2);
 
 	// 100212: For debugging/testing:

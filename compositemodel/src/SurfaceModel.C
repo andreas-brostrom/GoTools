@@ -1871,9 +1871,8 @@ void SurfaceModel::swapFaces(int idx1, int idx2)
 	shared_ptr<ParamSurface> surf = faces[ki]->surface();
 
 	// Get resolution
-	SurfaceModelUtils::setResolutionFromDensity(surf, density, min_nmb, 
-						    max_nmb, tol2d_, 
-						    u_res, v_res);
+	SurfaceModelUtils::setResolutionFromDensity(surf, density, tol2d_, min_nmb, 
+						    max_nmb, u_res, v_res);
 
 	shared_ptr<GeneralMesh> mesh;
 	try {
@@ -2105,6 +2104,39 @@ void SurfaceModel::swapFaces(int idx1, int idx2)
 
 	// Sample the inner of the current face
 	FaceUtilities::getInnerData(curr, nmb_u, nmb_v, sample_points);
+      }
+	
+  }
+
+  //===========================================================================
+  void 
+  SurfaceModel::fetchSamplePoints2(double density,
+				   vector<SamplePointData2>& sample_points) const
+  //===========================================================================
+  {
+    sample_points.clear();
+    int min_nmb = 3;
+    int max_nmb = (int)(sqrt(1000000.0/(int)faces_.size()));
+
+    // For each face, estimate the number of sample points and compute points
+    for (size_t ki=0; ki<faces_.size(); ++ki)
+      {
+	ftSurface *curr = faces_[ki]->asFtSurface();
+	if (!curr)
+	  continue;  // Unexpected situation
+
+	// Fetch number of sampling points
+	int nmb_u, nmb_v;
+	SurfaceModelUtils::setResolutionFromDensity(curr->surface(), density, 
+						    tol2d_, min_nmb, max_nmb, 
+						    nmb_u, nmb_v);
+
+	// Sample face boundaries
+	FaceUtilities::getBoundaryData2(curr, 2*(nmb_u+nmb_v),
+					sample_points);
+
+	// Sample the inner of the current face
+	FaceUtilities::getInnerData2(curr, nmb_u, nmb_v, sample_points);
       }
 	
   }

@@ -37,45 +37,66 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifndef SPLINE2MESH_H_INCLUDED
-#define SPLINE2MESH_H_INCLUDED
+#include "GoTools/implicitization/ImplicitizePointCloudAlgo.h"
+#include "GoTools/geometry/ObjectHeader.h"
+#include "GoTools/geometry/PointCloud.h"
+#include "GoTools/implicitization/BernsteinTetrahedralPoly.h"
+#include "GoTools/utils/BaryCoordSystem.h"
+#include <fstream>
 
 
+using namespace Go;
+using namespace std;
 
 
-
-
-#include "GoTools/utils/Array.h"
-
-#include <vector>
-
-
-#include "GoTools/tesselator/2dpoly_for_s2m.h"
-#include "GoTools/geometry/ParamSurface.h"
-#include "GoTools/geometry/ParamCurve.h"
-
-
-
-
-
-
-namespace Go
+int main(int argc, char* argv[])
 {
+  if (argc != 4)
+    {
+    std::cout << "Input parameters : Input file, output file, degree"  << std::endl;
+    exit(-1);
+  }
   
-  // 081206: A version for more than one curve.
-  void make_trimmed_mesh(shared_ptr<ParamSurface> srf, 
-			 std::vector<shared_ptr<ParamCurve> >& crv_set,
-			 std::vector<int>& n_loop,
-			 std::vector< Vector3D > &vert,
-			 std::vector< Vector2D > &vert_p,
-			 std::vector< int > &bd,
-			 std::vector< Vector3D > &norm,
-			 std::vector<int> &mesh,
-			 std::vector< Vector3D > &trim_curve,
-			 std::vector< Vector3D > &trim_curve_p,
-			 const int dn, const int dm,
-			 double bd_res_ratio);
+    // Read the point cloud from file
+    ifstream input(argv[1]);
+    ofstream output(argv[2]);
+    int degree = atoi(argv[3]);
+    ObjectHeader header;
+    PointCloud3D cloud;
+    input >> header >> cloud;
 
-} // namespace Go
+    // Implicitize
+    ImplicitizePointCloudAlgo implicitize(cloud, degree);
+    implicitize.perform();
 
-#endif
+    // Get result
+    BernsteinTetrahedralPoly implicit;
+    BaryCoordSystem3D bc;
+    double sigma_min;
+    implicitize.getResultData(implicit, bc, sigma_min);
+
+    // Check accuracy
+    double avdist = 0.0;
+    double maxdist = 0.0;
+    int dim = 3;
+    int numpt = cloud.numPoints();
+    for (int ki=0; ki<numpt; ++ki)
+      {
+	Vector3D curr = cloud.point(ki);
+	Vector4D bary = bc.cartToBary(curr);
+	double dist = implicit(bary);
+	maxdist = std::max(maxdist, dist);
+	avdist += dist;
+      }
+    avdist /= (double)numpt;
+    std::cout << "Maximum distance: " << maxdist << std::endl;
+    std::cout << "Average distance: " << avdist << std::endl;
+    
+    // Write out implicit function
+    std::cout << "Sigma_min: " << sigma_min << std::endl;
+    output << implicit << endl
+	   << bc << endl;
+    cout << "Data written to output" << endl;
+
+    return 0;
+}

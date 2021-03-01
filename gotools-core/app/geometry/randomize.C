@@ -37,45 +37,68 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifndef SPLINE2MESH_H_INCLUDED
-#define SPLINE2MESH_H_INCLUDED
+#include "GoTools/geometry/ObjectHeader.h"
+#include "GoTools/geometry/PointCloud.h"
+#include "GoTools/utils/BoundingBox.h"
+#include <fstream>
 
 
+using namespace Go;
+using namespace std;
 
 
-
-
-#include "GoTools/utils/Array.h"
-
-#include <vector>
-
-
-#include "GoTools/tesselator/2dpoly_for_s2m.h"
-#include "GoTools/geometry/ParamSurface.h"
-#include "GoTools/geometry/ParamCurve.h"
-
-
-
-
-
-
-namespace Go
+int main(int argc, char* argv[])
 {
+  if (argc != 4)
+    {
+    std::cout << "Input parameters : Input file, output file, factor"  << std::endl;
+    exit(-1);
+  }
   
-  // 081206: A version for more than one curve.
-  void make_trimmed_mesh(shared_ptr<ParamSurface> srf, 
-			 std::vector<shared_ptr<ParamCurve> >& crv_set,
-			 std::vector<int>& n_loop,
-			 std::vector< Vector3D > &vert,
-			 std::vector< Vector2D > &vert_p,
-			 std::vector< int > &bd,
-			 std::vector< Vector3D > &norm,
-			 std::vector<int> &mesh,
-			 std::vector< Vector3D > &trim_curve,
-			 std::vector< Vector3D > &trim_curve_p,
-			 const int dn, const int dm,
-			 double bd_res_ratio);
+  // Read the point cloud from file
+  ifstream input(argv[1]);
+  ofstream output(argv[2]);
+  double fac = atof(argv[3]);
+  
+  ObjectHeader header;
+  PointCloud3D cloud;
+  input >> header >> cloud;
 
-} // namespace Go
+  vector<Point> dir(10);
+  dir[0] = Point(1.0, 0.0, 0.0);
+  dir[1] = Point(0.0, 1.0, 0.0);
+  dir[2] = Point(0.0, 0.0, 1.0);
+  dir[3] = Point(1.0, 1.0, 0.0);
+  dir[4] = Point(1.0, 0.0, 1.0);
+  dir[5] = Point(0.0, 1.0, 1.0);
+  dir[6] = Point(1.0, 1.0, 1.0);
+  dir[7] = Point(1.0, 0.5, 0.5);
+  dir[8] = Point(0.5, 1.0, 0.5);
+  dir[9] = Point(0.5, 0.5, 1.0);
+  
+  BoundingBox box = cloud.boundingBox();
+  double mlen = fac*(box.low().dist(box.high()));
+  int r1;
 
-#endif
+  int num = cloud.numPoints();
+  double *points = cloud.rawData();
+  int dim = 3;
+  int ki;
+  double *curr;
+  vector<double> rand_pts;
+  for (ki=0, curr=points; ki<num; ++ki, curr+=dim)
+    {
+      r1 = std::rand();
+      double f1 = ((double)r1/RAND_MAX)*mlen;
+      int sgn = (r1 % 2 == 0) ? 1 : -1;
+      int div = (int)(((double)r1/RAND_MAX + 0.00001)*10.0);
+      div = std::min(div, 9);
+      Point pos(curr, curr+dim);
+      Point pos2 = pos +sgn*f1*dir[div];
+      rand_pts.insert(rand_pts.end(), pos2.begin(), pos2.end());
+    }
+
+  PointCloud3D cloud2(&rand_pts[0], num);
+  cloud2.writeStandardHeader(output);
+  cloud2.write(output);
+}
