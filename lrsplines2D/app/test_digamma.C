@@ -37,60 +37,23 @@
  * written agreement between you and SINTEF ICT. 
  */
 
-#ifndef _EXAMPLES_DOXYMAIN_H
-#define _EXAMPLES_DOXYMAIN_H
+#include <boost/math/special_functions/gamma.hpp>
+#include <boost/math/special_functions/digamma.hpp>
+#include <boost/math/special_functions/polygamma.hpp>
+#include <iostream>
 
-/**
-\page gotools_examples GoTools example files
+int main(int argc, char* argv[])
+{
+  if (argc != 3)
+    {
+      std::cout << "Value to compute digamma, derivative" << std::endl;
+      exit(1);
+    }
 
-A number of example programs are created to illustrate the use of various
-GoTools functionality.
-
-Example programs in gotools-core:
-- \ref adapt_curve
-- \ref append_curve
-- \ref approx_curve
-- \ref approx_surface
-- \ref circle
-- \ref closestpoint_curve
-- \ref closestpoint_degenerate_sf
-- \ref closestpoint_surface
-- \ref cone
-- \ref const_param_curves
-- \ref coons_patch_gen
-- \ref cylinder
-- \ref ellipse
-- \ref interpol_curve_free
-- \ref interpol_curve_hermite
-- \ref linear_swept_surface
-- \ref project_curve
-- \ref rotational_swept_surface
-- \ref sphere
-- \ref surface_of_revolution
-- \ref torus
-
-Example program in igeslib
-- \ref intersect_with_plane The program demonstrates reading from and writing to an  IGES file and 
-intersection between a \beginlink \link Go::ParamSurface parametric surface \endlink and a plane.
-
-The module trivariate has the following example programs:
-- \ref coons_patch_volume_gen
-- \ref createCoonsVolume
-- \ref linear_swept_volume
-- \ref loft_volume_creator
-- \ref rotational_swept_volume
-
-The example programs related to compositemodel:
-- \ref createSplitDisc
-- \ref createBlockStructuredDisc
-- \ref createVolumeBoundaries
-- \ref face2splineset
-
-The example programs in the trivariatemodel module are:
-- \ref createMidShip
-- \ref mirrorAndLoft
-- \ref multiPatchSweep
-
-*/
-
-#endif // _EXAMPLES_DOXYMAIN_H
+  int val = atoi(argv[1]);
+  int der = atoi(argv[2]);
+  double gamma = boost::math::lgamma(val);
+  double digamma = boost::math::digamma(val);
+  double polygamma = boost::math::polygamma(der, val);
+  std::cout << "Lgamma: " << gamma << ", digamma: " << digamma << ", polygamma: " << polygamma << "\n";
+}

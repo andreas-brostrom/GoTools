@@ -461,7 +461,7 @@ the figure below.
 The control net has similar properties to the control
 polygon of a B-spline curve, described above.
 
-\image html surf1.gif "A B-spline surface and its control net" width=10cm
+\image html surf1.gif "A B-spline surface and its control net" 
 
 \subsection  geom_sec3_2 The Basis Functions
 
