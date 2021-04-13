@@ -577,6 +577,12 @@ class LRSplineVolume : public ParamVolume
   //    the value returned by LRSplineVolume::dimension().
   void setCoef(const Point& value, const LRBSpline3D* target);
 
+  // Set the coefficient of the LRBSpline3D pointed to by 'target' to 'value'.
+  // Conditions for calling this function are:
+  // 'target' should be a LRBSpline3D that belongs to the LRSplineVolume.
+  void setCoefAndDim(const Point& value, const double gamma,
+		     const LRBSpline3D* target);
+
   // Set the coefficient of the LRBSpline3D with support as specified by the knots
   // with indices 'umin_ix', 'vmin_ix', 'umax_ix' and 'vmax_ix' in the mesh, and whose
   // knot multiplicities at the lower-left corner are indicated by u_mult and v_mult respectively.  

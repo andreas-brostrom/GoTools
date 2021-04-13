@@ -287,6 +287,15 @@ class LRBSpline3D : public Streamable
     return bspline_w_->max();
   }
 
+  double pmin(Direction3D dir)
+  {
+    return getUnivariate(dir)->min();
+  }
+  double pmax(Direction3D dir)
+  {
+    return getUnivariate(dir)->max();
+  }
+  
   int coefFixed() const
   {
     return coef_fixed_;

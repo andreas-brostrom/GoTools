@@ -214,6 +214,15 @@ class Element3D
   double umax() const         { return stop_u_;  }
   double vmax() const         { return stop_v_;  }
   double wmax() const         { return stop_w_;  }
+  double pmin(Direction3D dir)
+  {
+    return (dir == XDIR) ? start_u_ : ((dir == YDIR) ? start_v_ : start_w_);
+  }
+  double pmax(Direction3D dir)
+  {
+    return (dir == XDIR) ? stop_u_ : ((dir == YDIR) ? stop_v_ : stop_w_);
+  }
+
   double volume() const         { return (stop_w_-start_w_)*(stop_v_-start_v_)*(stop_u_-start_u_);  }
   std::vector<LRBSpline3D*>::iterator supportBegin() { return support_.begin(); }
   std::vector<LRBSpline3D*>::iterator supportEnd()   { return support_.end();   }

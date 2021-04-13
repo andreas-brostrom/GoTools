@@ -1,6 +1,9 @@
 #include <iostream>
 #include <fstream>
+#include <string.h>
 
+#include "GoTools/geometry/GoTools.h"
+#include "GoTools/geometry/Utils.h"
 #include "GoTools/lrsplines3D/LRVolApprox.h"
 #include "GoTools/geometry/ObjectHeader.h"
 #include "GoTools/lrsplines3D/LRSpline3DBezierCoefs.h"
@@ -24,6 +27,8 @@ void print_help_text()
    std::cout << "The points follow and is to be given as x, y, z and w.\n";
   std::cout << "Optional input parameters: \n";
   std::cout << "-verbose <0/1>: Detailed output, default 0 \n";
+  std::cout << "-par <dim>: Dimension of geometry space, used for parameterized data (default 1) \n";
+  std::cout << "-magnitude  <0/1>: Approximate length of point vector \n";
   std::cout << "-dist <filename (.txt)> : Write distance field to file (x, y, z, distance) \n";
   std::cout << "-info <filename> : Write accuracy information to file \n";
   std::cout << "-initmba <0/1>: 0 = initiate with least squares method \n";
@@ -33,6 +38,13 @@ void print_help_text()
   std::cout << "-tolfile: File specifying domains with specific tolerances, global tolerance apply outside domains. PointCloud2LR -tolfile for file format \n";
   std::cout << "-toldoc: Documentation on file format for tolerance domains. \n";
   std::cout << "-outfrac <percentage>: Local measure for when the fraction of points outside the tolerance should lead to volume splitting \n";
+  std::cout << "-feature <ncell1> <ncell2> <ncell3>: Specify 3D grid for feature output \n";
+  std::cout << "-featurelevels <number of levels> <level 1> ... <level n> \n";
+  std::cout << "-bezout <0/1>: Bezier file output for modhot vizualization, default 0 \n";
+  std::cout << "-surfin <filename.g2>: LR spline volume to update \n";
+  std::cout << "-spacein <filename.g2>: LR spline volume from which to fetch initial spline space \n";
+  std::cout << "surfin and spacein can not be applied simultanously \n";
+  std::cout << "-combineinout <0/1>: Combine resulting volume and volume given with -spacein or -surfin in one higher-dimensional volume. Requires number of iterations = 0 \n";
   std::cout << "-h or --help : Write this text\n";
 }
 
@@ -102,6 +114,7 @@ int main (int argc, char *argv[]) {
   char *infofile = 0;      // Accuracy information output file
   char *tolfile = 0;       // File specifying varying tolerances
   char *field_out = 0;     // Distance field output file
+  char *invol = 0;         // 
 
   double epsge;
   int levels;
@@ -112,6 +125,13 @@ int main (int argc, char *argv[]) {
   double minsize = -1.0;
   double outfrac = 0.0;
   int ncell1=0, ncell2=0, ncell3=0;
+  bool features = false;
+  vector<int> feature_levels;
+  int dim = 1;
+  int magnitude = 0;
+  int bezout = 0;
+  int initvol = 0;
+  int combine = 0;
 
   int ki, kj;
   vector<bool> par_read(argc-1, false);
@@ -159,6 +179,20 @@ int main (int argc, char *argv[]) {
 	  if (stat < 0)
 	    return 1;
 	}
+      else if (arg == "-par")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, dim, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+      else if (arg == "-magnitude")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, magnitude, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
       else if (arg == "-degree")
 	{
 	  int stat = fetchIntParameter(argc, argv, ki, degree, 
@@ -189,6 +223,69 @@ int main (int argc, char *argv[]) {
 	  outfrac = std::max(0.0, outfrac);
 	  outfrac /= 100.0;
 	}
+      else if (arg == "-feature")
+	{
+	  if (ki == argc-1)
+	    {
+	      std::cout << "ERROR: Missing input" << std::endl;
+	      print_help_text();
+	      return 1;
+	    }
+	  features = true;
+	  ncell1 = atoi(argv[ki+1]);
+	  ncell2 = atoi(argv[ki+2]);
+	  ncell3 = atoi(argv[ki+3]);
+	  par_read[ki-1] = par_read[ki] = par_read[ki+1] = par_read[ki+2] = true;
+	  nmb_par -= 4;
+	}
+     else if (arg == "-featurelevels")
+	{
+	  if (ki == argc-1)
+	    {
+	      std::cout << "ERROR: Missing input" << std::endl;
+	      print_help_text();
+	      return 1;
+	    }
+	  int fsize = atoi(argv[ki+1]);
+	  par_read[ki-1] = par_read[ki] = true;
+	  feature_levels.resize(fsize);
+	  for (int ka=0; ka<fsize; ++ka)
+	    {
+	      feature_levels[ka] = atoi(argv[ki+ka+2]);
+	      par_read[ki+ka+1] = true;
+	    }
+	  nmb_par -= (fsize+2);
+	}
+     else if (arg == "-bezout")
+	{
+	  int stat = fetchIntParameter(argc, argv, ki, bezout, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	}
+     else if (arg == "-surfin")
+       {
+	  int stat = fetchCharParameter(argc, argv, ki, invol, 
+					nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	  initvol = 1;
+       }
+     else if (arg == "-spacein")
+       {
+	  int stat = fetchCharParameter(argc, argv, ki, invol, 
+					nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+	  initvol = 2;
+       }
+     else if (arg == "-combineinout")
+       {
+	  int stat = fetchIntParameter(argc, argv, ki, combine, 
+				       nmb_par, par_read);
+	  if (stat < 0)
+	    return 1;
+       }
     }
 
   // Read remaining parameters
@@ -223,29 +320,32 @@ int main (int argc, char *argv[]) {
 	  levels = atoi(argv[ki]);
 	}
     }
- 
+
+   if ((!invol) || levels > 0)
+     combine = 0;
 
    // Read data points
    ifstream ifs(pointfile);
   int nmb_pts;
   ifs >> nmb_pts;
 
+  int dim2 = (magnitude) ? 1 : dim;
   vector<double> pc4d;
 
   double domain[6];
   domain[0] = domain[2] = domain[4] = 1.0e8;
   domain[1] = domain[3] = domain[5] = -1.0e8;
-  double mba_level = 0.0; //0.5*(minval+maxval); //0.0;
-  double minval = std::numeric_limits<double>::max();
-  double maxval = std::numeric_limits<double>::lowest();
+  vector<double> mba_level(dim2,0.0); //0.5*(minval+maxval); //0.0;
+  vector<double> minval(dim2, std::numeric_limits<double>::max());
+  vector<double> maxval(dim2, std::numeric_limits<double>::lowest());
+  vector<double> tmpq(dim);
   for (int ix=0; ix!=nmb_pts; ++ix)
     {
       double p0, p1, p2, q0;
-      ifs >> p0 >> p1 >> p2 >> q0;
+      ifs >> p0 >> p1 >> p2;
       pc4d.push_back(p0);
       pc4d.push_back(p1);
       pc4d.push_back(p2);
-      pc4d.push_back(q0);
       
       domain[0] = std::min(domain[0], p0);
       domain[1] = std::max(domain[1], p0);
@@ -254,9 +354,27 @@ int main (int argc, char *argv[]) {
       domain[4] = std::min(domain[4], p2);
       domain[5] = std::max(domain[5], p2);
 
-      mba_level += q0/(double)nmb_pts;
-      minval = std::min(minval, q0);
-      maxval = std::max(maxval, q0);
+      for (int ka=0; ka<dim; ++ka)
+	{
+	  ifs >> q0;
+	  tmpq[ka] = q0;
+	}
+
+      if (magnitude)
+	{
+	  Point tmp(tmpq.begin(), tmpq.end());
+	  //double tmp = Utils::sum_squared(tmpq.begin(), tmpq.end());
+	  tmpq[0] = tmp.length(); //sqrt(tmp);
+	}
+
+      for (int ka=0; ka<dim2; ++ka)
+	{
+	  pc4d.push_back(tmpq[ka]);
+
+	  mba_level[ka] += tmpq[ka]/(double)nmb_pts;
+	  minval[ka] = std::min(minval[ka], tmpq[ka]);
+	  maxval[ka] = std::max(maxval[ka], tmpq[ka]);
+	}
     }
 
  
@@ -290,14 +408,16 @@ int main (int argc, char *argv[]) {
     }
   if (epsge < 0.0)
     use_stdd = true;
-	  
+
+  double mba_level2 = 0.0; //(dim > 1) ? 0.0 : mba_level[0];
+  
   if (use_stdd)
     {
       double stdd = 0.0;
       for (ki=0; ki<nmb_pts; ++ki)
 	{
 	  double q1 = pc4d[del*ki+del-1];
-	  stdd += (pow(mba_level-q1,2)/(double)nmb_pts);
+	  stdd += (pow(mba_level2-q1,2)/(double)nmb_pts);
 	}
       stdd = sqrt(stdd);
       for (size_t kj=0; kj<tolerances.size(); ++kj)
@@ -314,49 +434,113 @@ int main (int argc, char *argv[]) {
      
   std::cout << "Domain: [" << domain[0] << "," << domain[1] << "]x[" << domain[2];
   std::cout << "," << domain[3] << "]x[" << domain[4] << "," << domain[5] << "]" << std::endl;
-  std::cout << "Range: [" << minval << "," << maxval << "]" << std::endl;
-  int dim = 1;
-  int ncoef = 6; //6; //8; //6
-  int order = degree + 1;
-  int nm = ncoef*ncoef*ncoef;
-  double dom = (domain[1]-domain[0])*(domain[3]-domain[2])*(domain[5]-domain[4]);
-  double c1 = std::pow((double)nm/dom, 1.0/3.0);
-  int nc[3];
-  for (kj=0; kj<3; ++kj)
+  for (int ka=0; ka<dim2; ++ka)
+    std::cout << "Range(" << ka << "): [" << minval[ka] << "," << maxval[ka] << "]" << std::endl;
+  shared_ptr<LRVolApprox> vol_approx;
+  shared_ptr<LRSplineVolume> volin;
+  if (invol && initvol > 0)
     {
-      double tmp = c1*(domain[2*kj+1]-domain[2*kj]);
-      nc[kj] = (int)tmp;
-      //if (tmp - (double)nc[kj] > 0.5)
-	++nc[kj];
-      nc[kj] = std::max(nc[kj], order);
-    }
-  //std::cout << "Number of coefficients: " << nc[0] << ", " << nc[1] << ", " << nc[2] << std::endl;
-  // LRVolApprox vol_approx(nc[0], order, nc[1], order, nc[2], order,
-  // 			 pc4d, dim, domain, epsge, mba_level);
-  std::cout << "Number of coefficients: " << ncoef << ", " << ncoef << ", " << ncoef << std::endl;
-  LRVolApprox vol_approx(ncoef, order, ncoef, order, ncoef, order,
-  			 pc4d, dim, domain, epsge, mba_level);
-  vol_approx.setInitMBA(initMBA);
-  if (tolerances.size() > 0)
-    vol_approx.setVarTolBox(tolerances);
-  if (minsize > 0.0)
-    vol_approx.setMinimumElementSize(minsize, minsize, minsize);
-  if (outfrac > 0.0)
-    vol_approx.setOutFraction(outfrac);
-  if (verbose)
-    vol_approx.setVerbose(true);
-  else
-    vol_approx.setVerbose(false);
+      std::ifstream ifs(invol);
+      GoTools::init();
+      ObjectHeader oh;
+      oh.read(ifs);
+      volin = shared_ptr<LRSplineVolume>(new LRSplineVolume());
+      volin->read(ifs);
 
+      shared_ptr<LRSplineVolume> volspace = volin;
+      if (initvol == 2)
+	{
+	  // Set coefficients to zero and weights to one. Update dimension if
+	  // necessary
+	  if (combine)
+	    {
+	      // Must keep coefficient information in input volume
+	      volspace = shared_ptr<LRSplineVolume>(volin->clone());
+	    }
+	  Point coef(dim2);
+	  coef.setValue(0.0);
+	  for (LRSplineVolume::BSplineMap::const_iterator it1 = volspace->basisFunctionsBegin();
+	       it1 != volspace->basisFunctionsEnd(); ++it1)
+	    {
+	      double gamma = it1->second->gamma();
+	      volspace->setCoefAndDim(coef, gamma, it1->second.get());
+	    }
+	}
+      vol_approx = shared_ptr<LRVolApprox>(new LRVolApprox(volspace, pc4d, epsge,
+							   false, false, true));
+    }
+  else
+    {
+      int ncoef = 6; //6; //8; //6
+      int order = degree+1; //5; //3
+      int nm = ncoef*ncoef*ncoef;
+      double dom = (domain[1]-domain[0])*(domain[3]-domain[2])*(domain[5]-domain[4]);
+      double c1 = std::pow((double)nm/dom, 1.0/3.0);
+      int nc[3];
+      for (kj=0; kj<3; ++kj)
+	{
+	  double tmp = c1*(domain[2*kj+1]-domain[2*kj]);
+	  nc[kj] = (int)tmp;
+	  //if (tmp - (double)nc[kj] > 0.5)
+	  ++nc[kj];
+	  nc[kj] = std::max(nc[kj], order);
+	}
+      std::cout << "Number of coefficients: " << nc[0] << ", " << nc[1] << ", " << nc[2] << std::endl;
+      vol_approx = shared_ptr<LRVolApprox>(new LRVolApprox(nc[0], order, nc[1], order, nc[2], order,
+							   pc4d, dim2, domain, epsge, mba_level2));
+      // vol_approx = shared_ptr<LRVolApprox>(new LRVolApprox(ncoef, order, ncoef, order,
+      // 							   ncoef, order, pc4d, dim2, domain,
+      // 							   epsge, mba_level2));
+      vol_approx->setInitMBA(initMBA);
+    }
+
+  if (tolerances.size() > 0)
+    vol_approx->setVarTolBox(tolerances);
+  if (minsize > 0.0)
+    vol_approx->setMinimumElementSize(minsize, minsize, minsize);
+  if (outfrac > 0.0)
+    vol_approx->setOutFraction(outfrac);
+  if (verbose)
+    vol_approx->setVerbose(true);
+  else
+    vol_approx->setVerbose(false);
+
+  // Feature output
+  if (features)
+    {
+      vol_approx->setFeatureOut(ncell1, ncell2, ncell3);
+      vol_approx->setFeatureLevel(feature_levels);
+    }
+  
   double max, average, av_all;
   double maxout, avout;
   int num_out;
   cout << "Starting approximation..." << endl;
 
-  shared_ptr<LRSplineVolume> result = vol_approx.getApproxVol(max,av_all,average,num_out,levels);
+  shared_ptr<LRSplineVolume> result = vol_approx->getApproxVol(max,av_all,average,num_out,levels);
 
-  vol_approx.fetchOutsideTolInfo(maxout, avout);
+  vol_approx->fetchOutsideTolInfo(maxout, avout);
 
+  if (combine)
+    {
+      // Combine initial volume with result in one volume
+      Point coef(volin->dimension()+result->dimension());
+      LRSplineVolume::BSplineMap::const_iterator it1 = volin->basisFunctionsBegin();
+      LRSplineVolume::BSplineMap::const_iterator it2 = result->basisFunctionsBegin();
+      for (; it1 != volin->basisFunctionsEnd(); ++it1, ++it2)
+	{
+	  Point cf1 = it1->second->Coef();
+	  double gamma = it1->second->gamma();
+	  Point cf2 = it2->second->Coef();
+	  int ki, kr;
+	  for (ki=0, kr=0; ki<volin->dimension(); ++ki, ++kr)
+	    coef[kr] = cf1[ki];
+	  for (ki=0; ki<result->dimension(); ++ki, ++kr)
+	    coef[kr] = cf2[ki];
+	  result->setCoefAndDim(coef, gamma, it2->second.get());
+	}
+    }
+  
   if (infofile)
     {
       std::ofstream infoout(infofile);   // Accuracy information output stream
@@ -384,11 +568,20 @@ int main (int argc, char *argv[]) {
   ofstream ofs(volfile);
   result->writeStandardHeader(ofs);
   result->write(ofs);
-  
-  // LRSpline3DBezierCoefs bez(*result);
 
-  // bez.getBezierCoefs();
-  // bez.writeToFile("outbez.bb");
+  if (bezout)
+    {
+      LRSpline3DBezierCoefs bez(*result);
+      
+      bez.getBezierCoefs();
+
+      char bezfile[200];
+      int len = (int)strlen(volfile);
+      strcpy(bezfile, volfile);
+      int len2 = (int)strlen(bezfile);
+      strncat(bezfile,".bb", 3);
+      bez.writeToFile(bezfile);
+    }
 
   if (field_out)
     {

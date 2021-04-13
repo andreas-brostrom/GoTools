@@ -2772,6 +2772,19 @@ void LRSplineVolume::zero_knot(Direction3D d, double knotval)
   it->second->coefTimesGamma() = value * gamma;
 }
 
+//==============================================================================  
+void LRSplineVolume::setCoefAndDim(const Point& value, const double gamma,
+				   const LRBSpline3D* target)
+//==============================================================================
+{
+  const auto it = bsplines_.find(generate_key(*target, mesh_));
+  if (it == bsplines_.end())
+    THROW("setCoef:: 'target' argument does not refer to member basis function.");
+
+  // if we got here, calling contract is fulfilled
+  it->second->coefTimesGamma() = value * gamma;
+}
+
 //==============================================================================
   void LRSplineVolume::setCoef(const Point& value,
 			       int umin_ix, int vmin_ix, int wmin_ix, int umax_ix, int vmax_ix, int wmax_ix,
