@@ -51,6 +51,13 @@ int main (int argc, char *argv[]) {
 	  ifs >> q0;
 	}
     }
+
+  for (int ka=0; ka<3; ++ka)
+    {
+      double tdel = domain[2*ka+1] - domain[2*ka];
+      domain[2*ka] -= 0.01*tdel;
+      domain[2*ka+1] += 0.01*tdel;
+    }
   
   std::cout << "Domain: [" << domain[0] << "," << domain[1] << "]x[" << domain[2];
   std::cout << "," << domain[3] << "]x[" << domain[4] << "," << domain[5] << "]" << std::endl;
